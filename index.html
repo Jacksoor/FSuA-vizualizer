@@ -174,7 +174,6 @@
 	var linkSourceNode = null;
 	var linkingMode = false;
 	
-	var holdTimer;
 	var settingsActive = false;
 	var editNode = null;
 	var editEdge = null;
@@ -184,10 +183,9 @@
 		linkSourceNode = event.cyTarget;
 		linkSourceNode.addClass('link');
 		cy.add([
-			{ group: "nodes", data: { id: "linker", isGhost: true}, renderedPosition: event.cyRenderedPosition },
+			{ group: "nodes", data: { id: "linker", isGhost: true}, classes: 'linker', renderedPosition: event.cyRenderedPosition },
 			{ group: "edges", data: { id: "newLink", source: linkSourceNode.id(), target: 'linker' } },
 		]);
-		cy.$('#linker').addClass('linker');
 		linkingMode = true;
 	}
 	
@@ -200,9 +198,11 @@
 	}
 	
 	function showNodeSettings(event){
-		//Create tooltip on longpress and save api
+		//Ghost nodes have no settings!
+		if(event.cyTarget.data('isGhost'))
+			return;
+
 		editNode = event.cyTarget;
-		editNode.lock();
 		//Get Settings
 		var settingsForm = $('#nodeSettings').clone();
 		settingsForm.find('#inputStateName').val(editNode.data('name'));
@@ -213,7 +213,7 @@
 		qTipSettingsApi = editNode.qtip({
 		  content: { text : settingsForm  },
 		  position: {
-			my: 'top center',
+			my: 'bottom center',
 			at: 'top center',
 		  },
 		  show: {
@@ -222,7 +222,6 @@
 		  },
 		  events: {
 			hide: function(event, api) {
-				editNode.unlock();
 				this.qtip('api').destroy();
 				settingsActive = false;
 				}
@@ -245,12 +244,18 @@
 		//Get Settings
 		var settingsForm = $('#edgeSettings').clone();
 		settingsForm.find('#inputTransitionSymbols').val(editEdge.data('transitionSymbols'));
-		
-		qTipSettingsApi = editEdge.qtip({
+
+		//Create a dummy ghost node on event click position
+		cy.add([
+			{ group: "nodes", data: { id: "dummy", isGhost: true}, classes:'ghostNode', renderedPosition: event.cyRenderedPosition },
+		]);
+
+		//Add qTip to dummy node
+		qTipSettingsApi = cy.$('#dummy').qtip({
 		  content: { text : settingsForm  },
 		  position: {
-			
-			target: cy.$('#'+editEdge.id())
+			my: 'bottom center',
+			at: 'top center',
 		  },
 		  show: {
 			solo: true,
@@ -258,6 +263,8 @@
 		  },
 		  events: {
 			hide: function(event, api) {
+				//Delete dummy
+				cy.$('#dummy').remove();
 				this.qtip('api').destroy();
 				settingsActive = false;
 				}
@@ -272,6 +279,7 @@
 		})
 		.qtip('api');
 		qTipSettingsApi.show();
+		settingsForm.find('#inputTransitionSymbols').focus();
 		settingsActive = true;
 	}
 	
@@ -360,23 +368,26 @@
 	$(document).on('change', '#inputTransitionSymbols', function(){
 		setTransitionSymbols(editEdge, $(this).val());
 	});
-	
-	//Tap and hold to show settings, cancel on mouseup or mousemove
-	cy.on('tapstart', 'node', function(event){
-		holdTimer = setTimeout(function() {
+
+	//Double click and single click distinguish
+	var clicks = 0;
+	cy.on('tap', 'node', function(event) {
+		clicks++;
+		if (clicks == 1) {
+        setTimeout(function(){
+          if(clicks == 1) {
+            linkMode(event);
+          } else {
 			showNodeSettings(event);
-		}, 600);
-	}).bind('mouseup mousemove', function(){
-		clearTimeout(holdTimer);
+          }
+          clicks = 0;
+        }, 150);
+      }
 	});
 	
-	//Select Nodes for link
-	cy.on('tap', 'node', function(event){
-		//We don't want to interfere with qtip settings
-		if(settingsActive)
-			return;
-		//No node selected
+	function linkMode(event){
 		if(linkSourceNode == null){
+			//Ghost nodes cannot be used for links
 			if(event.cyTarget.data('isGhost'))
 				return;
 			startLinkingMode(event);
@@ -387,9 +398,11 @@
 		}
 		//Link the selected node to the event node
 		else{
-			if(event.cyTarget.data('isGhost'))
+			//Cancel linking mode on invalid target
+			if(event.cyTarget.data('isGhost')){
+				endLinkingMode();
 				return;
-
+			}
 			if(linkSourceNode.edgesTo('#'+event.cyTarget.id()).length == 0){
 				cy.add([
 					{ group: "edges", data: { id: "e"+edgeCounter, source: linkSourceNode.id(), transitionSymbols: '', target: event.cyTarget.id() } },
@@ -398,7 +411,7 @@
 			}
 			endLinkingMode();
 		}
-	});
+	}
 
 	cy.on('tap', 'edge', function(event){
 		showEdgeSettings(event);
@@ -529,8 +542,8 @@
 
     <div id="config" class="config">
 		<h2>Optionen</h2>
-		<!--<label for="inputAlphabet">Eingabealphabet:</label>
-		<input type="text" class="form-control" id="inputAlphabet" placeholder="Mit ">-->
+		<label for="inputAlphabet">Eingabealphabet:</label>
+		<input type="text" class="form-control" id="inputAlphabet" placeholder="Mit ">
 		<label for="inputWord">Eingabewort:</label>
 		<input type="text" class="form-control" id="inputWord" placeholder="bsp. abab">
 		<button class="btn btn-default" id="btnTestWord">Testen</button>
