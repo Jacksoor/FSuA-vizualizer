@@ -72,6 +72,10 @@
 	.bootstrap-tagsinput{
 		width: 100%;
 	}
+	
+	.error-message{
+		display: none;
+	}
     </style>
 	<!-- Main Scripts -->
     <script src="./jquery.min.js"></script>
@@ -120,6 +124,7 @@
 			</div>
 			<button class="btn btn-default" id="btnTestWord">Testen</button>
 			<button class="btn btn-default" id="btnDebug">Debug</button>
+			<button class="btn btn-default btn-large" id="btnSave">Log Graph JSON</button>
 		</form>
     </div>
 
@@ -152,6 +157,7 @@
 		<div class="form-group">
 			<label for="inputTransitionSymbols">Übergangszeichen</label>
 			<input type="text" class="form-control" id="inputTransitionSymbols" data-role="tagsinput">
+			<span id="errorTransitionSymbols" class="text-danger error-message">Zeichen befindet sich nicht im Eingabealphabet!</span>
 			<script>
 				$('#inputTransitionSymbols').tagsinput({
 					maxChars: 1,

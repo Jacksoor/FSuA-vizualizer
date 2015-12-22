@@ -24,7 +24,8 @@
 			'text-outline-color': 'white',
 			'target-arrow-shape': 'triangle',
 			'target-arrow-color': 'black',
-			'line-color': 'black'
+			'line-color': 'black',
+			'edge-text-rotation': 'autorotate'
 		})
 		.selector('.loop')
 		.css({
@@ -63,10 +64,11 @@
 		})
 		.selector('.highlighted')
 		.css({
-			'background-color': 'teal',
-			'line-color': 'teal',
-			'target-arrow-color': 'teal',
-			'transition-property': 'background-color, line-color, target-arrow-color',
+			'background-color': '#61bffc',
+			'line-color': '#61bffc',
+			'target-arrow-color': '#61bffc',
+			'source-arrow-color': '#61bffc',
+			'transition-property': 'background-color, line-color, target-arrow-color, source-arrow-color',
 			'transition-duration': '0.5s'
 		}),
 		//sample elements
@@ -97,6 +99,7 @@
 	
 	//Get Settings
 	var formEdgeSettings = $('#edgeSettings');
+	var edgeSettingsError = $('#errorTransitionSymbols');
 	var settingsActive = false;
 	var editNode = null;
 	var editEdge = null;
@@ -166,8 +169,8 @@
 		qTipSettingsApi = editNode.qtip({
 			content: { text : settingsForm  },
 			position: {
-				my: 'bottom center',
-				at: 'top center',
+				my: 'top center',
+				at: 'bottom center',
 			},
 			show: {
 				solo: true,
@@ -216,8 +219,8 @@
 		qTipSettingsApi = cy.$('#dummy').qtip({
 			content: { text : formEdgeSettings  },
 			position: {
-				my: 'bottom center',
-				at: 'top center',
+				my: 'top center',
+				at: 'bottom center',
 			},
 			show: {
 				solo: true,
@@ -306,6 +309,17 @@
 		edge.data('transitionSymbols', $.extend([],newTags.tagsinput('items')));
 	}
 	
+	//Remove a transition symbol from all edges and update their text
+	function removeFromEdges(transitionSymbol){
+		allEdges = cy.edges();
+		allEdges.each(function(i,ele){
+			if($.inArray(transitionSymbol, ele.data('transitionSymbols')) > -1){
+				ele.data('transitionSymbols').splice( $.inArray(transitionSymbol, ele.data('transitionSymbols')), 1 );
+				ele.data('symbolsText', ele.data('transitionSymbols').toString());
+			}
+		});
+	}
+	
 	
 	/* E V E N T S */
 	
@@ -341,10 +355,21 @@
 		setLoop(editNode, $(this).prop('checked'));
 	});
 	
+	$('#inputAlphabet').on('itemRemoved', function(event){
+		removeFromEdges(event.item);
+	});
+	
 	$(document).on('change', '#inputTransitionSymbols', function(){
 		//We don't want tags to be removed when they are deleted (could be improved)
 		if(editEdge != null)
 			setTransitionSymbols(editEdge, $(this));
+	});
+	
+	$('#inputTransitionSymbols').on('beforeItemAdd', function(event){
+		if($.inArray(event.item, inputAlphabet) == -1){
+			edgeSettingsError.stop(true).hide().show().delay(2000).fadeOut();
+			event.cancel = true;
+		}
 	});
 	
 	//Double click and single click distinguish
@@ -426,6 +451,10 @@
 		acceptsWord($('#inputWord').val())
 	});
 	
+	$('#btnSave').on('click', function(){
+		console.log(cy.json());
+	});
+	
 	//Debug Button for console logs
 	$('#btnDebug').on('click', function(){
 		console.log(qTipSettingsApi.get('content.text'));
@@ -444,10 +473,6 @@
 		inputWord = word;
 		path.push(currentNodes);
 		for (var i = 0, len = word.length; i < len; i++) {
-			if(currentNodes.empty()){
-				alert('wort nicht akzeptiert!');
-				return;
-			}
 			var nextNodes = cy.collection();
 			var nextEdges = cy.collection();
 			var outEdges = currentNodes.outgoers('edge');
