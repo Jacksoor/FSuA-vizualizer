@@ -8,14 +8,20 @@
 		style: cytoscape.stylesheet()
 		.selector('node')
 		.css({
-			'content': 'data(name)',
+			'label': 'data(name)',
+			'width': 'label',
+			'height': 'label',
+			'padding-left': '6px',
+			'padding-right': '6px',
+			'padding-top': '6px',
+			'padding-bottom': '6px',
 			'text-valign': 'center',
 			'background-color': 'white',
 			'color': 'black',
 			'border-width': '2px',
 			'border-style': 'solid',
 			'border-color': 'black',
-			'z-index' : '1'
+			'z-index' : '2'
 		})
 		.selector('edge')
 		.css({
@@ -25,7 +31,8 @@
 			'target-arrow-shape': 'triangle',
 			'target-arrow-color': 'black',
 			'line-color': 'black',
-			'edge-text-rotation': 'autorotate'
+			'edge-text-rotation': 'autorotate',
+			'z-index' : '1'
 		})
 		.selector('.loop')
 		.css({
@@ -48,19 +55,17 @@
 		})
 		.selector('.ghostNode')
 		.css({
+			'padding-left': '0px',
+			'padding-right': '0px',
+			'padding-top': '0px',
+			'padding-bottom': '0px',
 			'width': '0px',
 			'height': '0px',
+			'z-index' : '0'
 		})
 		.selector('.link')
 		.css({
 			'background-color': 'red'
-		})
-		.selector('.linker')
-		.css({
-			'width': '0px',
-			'height': '0px',
-			'text-valign': 'center',
-			'z-index': '0'
 		})
 		.selector('.highlighted')
 		.css({
@@ -98,7 +103,7 @@
 	var linkingMode = false;
 	
 	//Get Settings
-	var formEdgeSettings = $('#edgeSettings');
+	var apiTipEdgeSettings = null;
 	var edgeSettingsError = $('#errorTransitionSymbols');
 	var settingsActive = false;
 	var editNode = null;
@@ -111,7 +116,7 @@
 		linkSourceNode = event.cyTarget;
 		linkSourceNode.addClass('link');
 		cy.add([
-			{ group: "nodes", data: { id: "linker", isGhost: true}, classes: 'linker', renderedPosition: event.cyRenderedPosition },
+			{ group: "nodes", data: { id: "linker", isGhost: true}, classes: 'ghostNode', renderedPosition: event.cyRenderedPosition },
 			{ group: "edges", data: { id: "newLink", source: linkSourceNode.id(), target: 'linker' , isGhost: true} },
 		]);
 		linkingMode = true;
@@ -200,57 +205,64 @@
 		if(event.cyTarget.data('isGhost'))
 			return;
 		
-		//Clear tag input
-		var inputSymbols = formEdgeSettings.find('#inputTransitionSymbols');
+		//First time function call, create a new dummy node with tip
+		if(apiTipEdgeSettings == null){
+			cy.add([
+				{ group: "nodes", data: { id: "dummy", isGhost: true}, classes:'ghostNode', grabbable: false, renderedPosition: event.cyRenderedPosition },
+			]);
+			
+			//Add qTip to dummy node
+			apiTipEdgeSettings = cy.$('#dummy').qtip({
+				content: { text : $('#edgeSettings')  },
+				position: {
+					my: 'top center',
+					at: 'bottom center',
+					target: cy.$('#dummy')
+				},
+				show: {
+					delay: 0,
+					event: 'false'
+				},
+				hide: {
+					effect: false,
+				},
+				events: {
+					show: function(event, api) {
+						settingsActive = true;
+					},
+					hide: function(event, api) {
+						editEdge = null;
+						settingsActive = false;
+						edgeSettingsError.stop(true).hide();
+					}
+				},
+				style: {
+					classes: 'qtip-bootstrap',
+					tip: {
+						width: 16,
+						height: 8
+					}
+				}
+			})
+			.qtip('api');
+			
+		}
+		else{
+			//Move dummy to new position
+			cy.$('#dummy').renderedPosition(event.cyRenderedPosition);
+			
+		}
+		var inputSymbols = apiTipEdgeSettings.get('content.text').find('#inputTransitionSymbols');
 		inputSymbols.tagsinput('removeAll');
-		
-		editEdge = event.cyTarget;
-		
-		$.each(editEdge.data('transitionSymbols'), function(i, tag){
+			
+		//Implement function to add all tags at once
+		$.each(event.cyTarget.data('transitionSymbols'), function(i, tag){
 			inputSymbols.tagsinput('add' , tag);
 		});
 		
-		//Create a dummy ghost node on event click position
-		cy.add([
-			{ group: "nodes", data: { id: "dummy", isGhost: true}, classes:'ghostNode', renderedPosition: event.cyRenderedPosition },
-		]);
-		
-		//Add qTip to dummy node
-		qTipSettingsApi = cy.$('#dummy').qtip({
-			content: { text : formEdgeSettings  },
-			position: {
-				my: 'top center',
-				at: 'bottom center',
-			},
-			show: {
-				solo: true,
-				event: 'false'
-			},
-			events: {
-				hide: function(event, api) {
-					editEdge = null;
-					
-					//Save settings form for later use
-					formEdgeSettings = this.qtip('api').get('content.text').detach();
-					this.qtip('api').destroy(true);
-					
-					//Delete dummy
-					cy.$('#dummy').remove();
-					settingsActive = false;
-				}
-			},
-			style: {
-				classes: 'qtip-bootstrap',
-				tip: {
-					width: 16,
-					height: 8
-				}
-			}
-		})
-		.qtip('api');
-		qTipSettingsApi.show();
-		formEdgeSettings.find('#inputTransitionSymbols').tagsinput('focus');
-		settingsActive = true;
+		editEdge = event.cyTarget;
+		apiTipEdgeSettings.show();
+		inputSymbols.tagsinput('focus');
 	}
 	
 	function setStateName(newName){
@@ -330,7 +342,7 @@
 	});
 	
 	$(document).on('submit', '#formEdgeSettings', function() {
-		qTipSettingsApi.hide();
+		apiTipEdgeSettings.hide();
 		return false;
 	});
 	
@@ -359,10 +371,10 @@
 		removeFromEdges(event.item);
 	});
 	
-	$(document).on('change', '#inputTransitionSymbols', function(){
-		//We don't want tags to be removed when they are deleted (could be improved)
-		if(editEdge != null)
+	$(document).on('itemAdded itemRemoved', '#inputTransitionSymbols', function(){
+		if(editEdge != null){
 			setTransitionSymbols(editEdge, $(this));
+		}
 	});
 	
 	$('#inputTransitionSymbols').on('beforeItemAdd', function(event){
@@ -455,13 +467,59 @@
 		console.log(cy.json());
 	});
 	
+	$('#btnAnalyzeGraph').on('click', function(){
+		analyzeGraph();
+	});
+	
 	//Debug Button for console logs
 	$('#btnDebug').on('click', function(){
-		console.log(qTipSettingsApi.get('content.text'));
+		analyzeGraph();
 	});
 	
 	
 	/* A L G O R I T H M S */
+	
+	//Get all possible transition edges from a node
+	function getTransitions(node){
+		//Get all outgoing transitions
+		var transitions = node.outgoers('edge')
+		//Add loops
+		transitions = transitions.add(node.edgesTo(node));
+		return transitions;
+	}
+	
+	function analyzeGraph(){
+		
+		var isDFA = true;
+		var countStartStates = 0;
+		var countEndStates = 0;
+		var countTransitions = 0;
+		
+		//Get all real nodes
+		var allNodes = cy.nodes('[!isGhost]');
+		var numStates = allNodes.length;
+		allNodes.each(function(i, node){
+			if(node.data('isStartState'))
+				countStartStates++;
+			if(node.data('isEndState'))
+				countEndStates++;
+			var transitions = getTransitions(node);
+			$.each(inputAlphabet, function(j, symbol){
+				var symbolTransitionCount = 0;
+				transitions.each(function(k,transition){
+					if($.inArray(symbol,transition.data('transitionSymbols')) > -1){
+						symbolTransitionCounter++;
+					}
+					if(symbolTransitionCounter > 1){
+						isDFA = false;
+					}
+					console.log(symbolTransitionCounter);
+				});
+				countTransitions += symbolTransitionCounter;
+			});
+		});
+	}
+	
 	var highlighCount;
 	var highlightPath;
 	var inputWord;
@@ -501,12 +559,27 @@
 		highlightPathNext();
 	}
 	
-	//Improve animation
+	//Function for animating each field in the highlightPath
 	var highlightPathNext = function(){
+		//TODO: use animation!
 		if(highlightCount < highlightPath.length){
-			highlightPath[highlightCount].addClass('highlighted');
+			highlightPath[highlightCount].each(function(i,ele){
+				var highlightAni = ele.animation({
+					style: {
+						'background-color': '#61bffc',
+						'line-color': '#61bffc',
+						'target-arrow-color': '#61bffc',
+						'source-arrow-color': '#61bffc',
+					},
+						duration: 750
+				});
+				highlightAni.play();
+				highlightAni.promise('completed').then(function(){
+				highlightAni.reverse().play();
+				});
+			});
 			highlightCount++;
-			setTimeout(highlightPathNext, 750);
+			setTimeout(highlightPathNext , 1000);
 		}
 		else{
 			var accepted = false;
@@ -521,7 +594,7 @@
 			else{
 				alert(inputWord + ' wurde NICHT akzeptiert!');
 			}
-			cy.elements().removeClass('highlighted')
+			//cy.elements().removeClass('highlighted')
 			
 		}
 	}

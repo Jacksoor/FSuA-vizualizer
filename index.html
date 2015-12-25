@@ -1,171 +1,198 @@
 ﻿<html>
-  <head>
-    <title>FSuA-Vizualizer</title>
-    <meta charset= utf-8 />
-    <style>
-	body {
-		width: 100%;
-		height: 100%;
-		font: 14px helvetica neue, helvetica, arial, sans-serif;
-		overflow: hidden;
-	}
-
-	#cy {
-		position: absolute;
-		left: 0;
-		top: 0;
-		width: 100%;
-		height: 100%;
-	}
-	
-	.node-settings{
-		max-width: 200px;
-		display: none;
-	}
-	
-	.edge-settings{
-		max-width: 200px;
-		display:none;
-	}
-
-	.config {
-	  position: absolute;
-	  right: 0;
-	  top: 0;
-	  bottom: 0;
-	  width: 20em;
-	  background: rgba(0, 0, 0, 0.75);
-	  box-sizing: border-box;
-	  padding: 1em;
-	  color: #fff;
-	  transition-property: opacity;
-	  transition-duration: 250ms;
-	  transition-timing-function: ease-out;
-	  overflow: auto;
-	  z-index: 1;
-	}
-
-	.config > h2{
-		margin-top: 3px;
-	}
-
-	.config-toggle {
-	  position: absolute;
-	  right: 5;
-	  top: 5;
-	  padding: 1em;
-	  margin: 0.2em;
-	  cursor: pointer;
-	  color: #888;
-	  z-index: 9999999;
-	}
-
-	.config-closed .config {
-	  opacity: 0;
-	  pointer-events: none;
-	}
-
-	.config-closed #cy {
-	  right: 0;
-	}
-	
-	.bootstrap-tagsinput{
-		width: 100%;
-	}
-	
-	.error-message{
-		display: none;
-	}
-    </style>
-	<!-- Main Scripts -->
-    <script src="./jquery.min.js"></script>
-    <script src="./cytoscape.min.js"></script>
-	
-	<!-- Bootstrap -->
-	<link href="/~jacksoor/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-	<script src="/~jacksoor/js/bootstrap.min.js"></script>
-	
-	<!-- Bootstrap Tags -->
-	<link href="./bootstrap-tagsinput.css" rel="stylesheet" type="text/css">
-	<script src="./bootstrap-tagsinput.js"></script>
-	
-	<!-- Tooltips -->
-	<script src="http://cdnjs.cloudflare.com/ajax/libs/qtip2/2.2.0/jquery.qtip.min.js"></script>
-	<link href="http://cdnjs.cloudflare.com/ajax/libs/qtip2/2.2.0/jquery.qtip.min.css" rel="stylesheet" type="text/css" />
-	<script src="./cytoscape-qtip.js"></script>
-	
-	<!-- THE script -->
-	<script src="./fsua-vizualizer.js"></script>
-	
-  </head>
-  <body>
-  	<div id="cy"></div>
-
-	<button type="button" class="btn btn-info btn-lg config-toggle" id="configToggle" aria-label="Left Align">
-		<span class="glyphicon glyphicon-menu-hamburger" aria-hidden="true"></span>
-	</button>
-
-    <div id="config" class="config">
-		<h2>Optionen</h2>
-		<form id='graphSettings'>
-			<div class="form-group">
-				<label for="inputAlphabet">Eingabealphabet:</label>
-				<input type="text" id="inputAlphabet" data-role="tagsinput">
-				<script>
-					$('#inputAlphabet').tagsinput({
-						maxChars: 1,
-						confirmKeys: [13, 32, 44]
-					});
-				</script>
-			<div>
-			<div class="form-group">
-				<label for="inputWord">Eingabewort:</label>
-				<input type="text" class="form-control" id="inputWord" placeholder="bsp. abab">
+	<head>
+		<title>FSuA-Vizualizer</title>
+		<meta charset= utf-8 />
+		<style>
+			body {
+			width: 100%;
+			height: 100%;
+			font: 14px helvetica neue, helvetica, arial, sans-serif;
+			overflow: hidden;
+			}
+			
+			#cy {
+			position: absolute;
+			left: 0;
+			top: 0;
+			width: 100%;
+			height: 100%;
+			}
+			
+			.node-settings{
+			max-width: 200px;
+			display: none;
+			}
+			
+			.edge-settings{
+			max-width: 200px;
+			display:none;
+			}
+			
+			.config {
+			position: absolute;
+			right: 0;
+			top: 0;
+			bottom: 0;
+			width: 20em;
+			background: rgba(0, 0, 0, 0.75);
+			box-sizing: border-box;
+			padding: 1em;
+			color: #fff;
+			transition-property: opacity;
+			transition-duration: 250ms;
+			transition-timing-function: ease-out;
+			overflow: auto;
+			z-index: 1;
+			}
+			
+			.config > h2{
+			margin-top: 3px;
+			}
+			
+			.config-toggle {
+			position: absolute;
+			right: 5;
+			top: 5;
+			padding: 1em;
+			margin: 0.2em;
+			cursor: pointer;
+			color: #888;
+			z-index: 9999999;
+			}
+			
+			.config-closed .config {
+			opacity: 0;
+			pointer-events: none;
+			}
+			
+			.config-closed #cy {
+			right: 0;
+			}
+			
+			.bootstrap-tagsinput{
+			width: 100%;
+			}
+			
+			.error-message{
+			display: none;
+			}
+		</style>
+		<!-- Main Scripts -->
+		<script src="./jquery.min.js"></script>
+		<script src="./cytoscape.min.js"></script>
+		
+		<!-- Bootstrap -->
+		<link href="/~jacksoor/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+		<script src="/~jacksoor/js/bootstrap.min.js"></script>
+		
+		<!-- Bootstrap Tags -->
+		<link href="./bootstrap-tagsinput.css" rel="stylesheet" type="text/css">
+		<script src="./bootstrap-tagsinput.js"></script>
+		
+		<!-- Tooltips -->
+		<script src="http://cdnjs.cloudflare.com/ajax/libs/qtip2/2.2.0/jquery.qtip.min.js"></script>
+		<link href="http://cdnjs.cloudflare.com/ajax/libs/qtip2/2.2.0/jquery.qtip.min.css" rel="stylesheet" type="text/css" />
+		<script src="./cytoscape-qtip.js"></script>
+		
+		<!-- THE script -->
+		<script src="./fsua-vizualizer.js"></script>
+		
+	</head>
+	<body>
+		<div id="cy"></div>
+		
+		<button type="button" class="btn btn-info btn-lg config-toggle" id="configToggle" aria-label="Left Align">
+			<span class="glyphicon glyphicon-menu-hamburger" aria-hidden="true"></span>
+		</button>
+		
+		<div id="config" class="config">
+			<h2>Optionen</h2>
+			<form id='graphSettings'>
+				<div class="form-group">
+					<label for="inputAlphabet">Eingabealphabet:</label>
+					<input type="text" id="inputAlphabet" data-role="tagsinput">
+					<script>
+						$('#inputAlphabet').tagsinput({
+							maxChars: 1,
+							confirmKeys: [13, 32, 44]
+						});
+					</script>
+				</div>
+				<div class="form-group">
+					<label for="inputWord">Eingabewort:</label>
+					<input type="text" class="form-control" id="inputWord" placeholder="bsp. abab">
+				</div>
+				<button class="btn btn-default" id="btnTestWord">Testen</button>
+				<button class="btn btn-default" id="btnDebug">Debug</button>
+				<button class="btn btn-default btn-lg" id="btnSave">Log Graph JSON</button>
+				<button type="button" class="btn btn-info btn-lg" id="btnAnalyzeGraph">
+					Graph analysieren
+				</button>
+			</form>
+		</div>
+		
+		<div class="node-settings" id="nodeSettings">
+			<form id='formNodeSettings'>
+				<div class="form-group">
+					<label for="inputStateName">Zustandsname</label>
+					<input type="text" class="form-control" id="inputStateName" placeholder="Name">
+				</div>
+				<div class="checkbox">
+					<label>
+						<input type="checkbox" id="checkStartState"> Ist Startzustand
+					</label>
+				</div>
+				<div class="checkbox">
+					<label>
+						<input type="checkbox" id="checkEndState"> Ist Endzustand
+					</label>
+				</div>
+				<div class="checkbox">
+					<label>
+						<input type="checkbox" id="checkHasLoop"> Loop
+					</label>
+				</div>
+			</form>
+		</div>
+		
+		<div class="edge-settings" id="edgeSettings">
+			<form id='formEdgeSettings'>
+				<div class="form-group">
+					<label for="inputTransitionSymbols">Übergangszeichen</label>
+					<input type="text" class="form-control" id="inputTransitionSymbols" data-role="tagsinput">
+					<span id="errorTransitionSymbols" class="text-danger error-message">Zeichen befindet sich nicht im Eingabealphabet!</span>
+					<script>
+						$('#inputTransitionSymbols').tagsinput({
+							maxChars: 1,
+							confirmKeys: [13, 32, 44]
+						});
+					</script>
+				</div>
+			</form>
+		</div>
+		
+		<!-- Modal -->
+		<div class="modal fade" id="modalAnalyzedGraph" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+			<div class="modal-dialog" role="document">
+				<div class="modal-content">
+					<div class="modal-header">
+						<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+						<h4 class="modal-title" id="myModalLabel">Graphenanalyse</h4>
+					</div>
+					<div class="modal-body">
+						<p>
+							Bei deinem erstellten Graphen handelt es sich um einen <span id="automataType"></span> <span id="automataDescription"></span>
+						</p>
+						<p> 
+							Dieser Automat enthält <span id="numStates"></span> Zustände, davon sind <span id="numStartStates"></span> Startzustände und <span id="numEndStates"></span> Endzustände.
+						</p>
+						<p>
+							Es sind <span id="numTransitions"></span> Übergangsfunktionen enthalten, davon sind <span id="numEpsilonTransitions"></span> &epsilon; Übergänge.
+						</p>
+					</div>
+				</div>
 			</div>
-			<button class="btn btn-default" id="btnTestWord">Testen</button>
-			<button class="btn btn-default" id="btnDebug">Debug</button>
-			<button class="btn btn-default btn-large" id="btnSave">Log Graph JSON</button>
-		</form>
-    </div>
-
-	<div class="node-settings" id="nodeSettings">
-		<form id='formNodeSettings'>
-		<div class="form-group">
-			<label for="inputStateName">Zustandsname</label>
-			<input type="text" class="form-control" id="inputStateName" placeholder="Name">
 		</div>
-		<div class="checkbox">
-			<label>
-				<input type="checkbox" id="checkStartState"> Ist Startzustand
-			</label>
-		</div>
-		<div class="checkbox">
-			<label>
-				<input type="checkbox" id="checkEndState"> Ist Endzustand
-			</label>
-			</div>
-		<div class="checkbox">
-			<label>
-			  <input type="checkbox" id="checkHasLoop"> Loop
-			</label>
-		</div>
-		</form>
-	</div>
-
-	<div class="edge-settings" id="edgeSettings">
-		<form id='formEdgeSettings'>
-		<div class="form-group">
-			<label for="inputTransitionSymbols">Übergangszeichen</label>
-			<input type="text" class="form-control" id="inputTransitionSymbols" data-role="tagsinput">
-			<span id="errorTransitionSymbols" class="text-danger error-message">Zeichen befindet sich nicht im Eingabealphabet!</span>
-			<script>
-				$('#inputTransitionSymbols').tagsinput({
-					maxChars: 1,
-					confirmKeys: [13, 32, 44]
-				});
-			</script>
-		</div>
-		</form>
-	</div>
-  </body>
+	</body>
 </html>
+		
