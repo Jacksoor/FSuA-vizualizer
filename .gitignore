@@ -1,5 +1,7 @@
 ﻿cytoscape.js
 cytoscape.min.js
 jquery.min.js
+jquery.qtip.min.js
+jquery.qtip.min.css
+bootstrap-tagsinput.css
 LGPL-LICENSE.txt
-README.md
