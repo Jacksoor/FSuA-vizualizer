@@ -17,6 +17,8 @@
 			'padding-bottom': '6px',
 			'text-valign': 'center',
 			'background-color': 'white',
+			'transition-property': 'background-color',
+			'transition-duration': '0.5s',
 			'color': 'black',
 			'border-width': '2px',
 			'border-style': 'solid',
@@ -31,6 +33,8 @@
 			'target-arrow-shape': 'triangle',
 			'target-arrow-color': 'black',
 			'line-color': 'black',
+			'transition-property': 'line-color, target-arrow-color, source-arrow-color',
+			'transition-duration': '0.75s',
 			'edge-text-rotation': 'autorotate',
 			'z-index' : '1'
 		})
@@ -73,19 +77,17 @@
 			'line-color': '#61bffc',
 			'target-arrow-color': '#61bffc',
 			'source-arrow-color': '#61bffc',
-			'transition-property': 'background-color, line-color, target-arrow-color, source-arrow-color',
-			'transition-duration': '0.5s'
 		}),
 		//sample elements
 		/*elements: {
 			nodes: [
-			{ data: { id: 't1', name: 'z0', isStartState: true, isEndState: false, hasLoop: false } },
-			{ data: { id: 't2', name: 'z1', isStartState: false, isEndState: false, hasLoop: false } },
-			{ data: { id: 't3', name: 'z2', isStartState: false, isEndState: false, hasLoop: false } },
+			{ data: { id: 't0', name: 'z0', isStartState: true, isEndState: false, hasLoop: false } },
+			{ data: { id: 't1', name: 'z1', isStartState: false, isEndState: false, hasLoop: false } },
+			{ data: { id: 't2', name: 'z2', isStartState: false, isEndState: false, hasLoop: false } },
 			],
 			edges: [
-			{ data: { id: 'te1', source: 't1', transitionSymbols: ['a'], symbolsText: 'a', target: 't2' } },
-			{ data: { id: 'te2', source: 't2', transitionSymbols: ['b'], symbolsText: 'b', target: 't3' } },
+			{ data: { id: 'te0', source: 't0', transitionSymbols: ['a'], symbolsText: 'a', target: 't1' } },
+			{ data: { id: 'te1', source: 't1', transitionSymbols: ['b'], symbolsText: 'b', target: 't2' } },
 			]
 		},*/
 		
@@ -281,7 +283,7 @@
 			]);
 			cy.$('#gn'+ghostCounter).addClass('ghostNode');
 			//Add ghost node as Attribute
-			editNode.data('startGhost', cy.$("#gn"+ghostCounter));
+			node.data('startGhost', cy.$("#gn"+ghostCounter));
 			ghostCounter++;
 		}
 		else{
@@ -290,13 +292,13 @@
 	}
 	
 	//Set isEndState to new boolParam
-	function setEndState(boolParam){
-		editNode.data('isEndState',boolParam);
+	function setEndState(node, boolParam){
+		node.data('isEndState',boolParam);
 		if(boolParam){
-			editNode.addClass('endState');
+			node.addClass('endState');
 		}
 		else{
-			editNode.removeClass('endState');
+			node.removeClass('endState');
 		}
 	}
 	
@@ -332,6 +334,98 @@
 		});
 	}
 	
+	//Get all possible transition edges from a node
+	function getTransitions(nodes, symbol){
+		if(nodes === undefined)
+			return
+		var transitions;
+		if(symbol === undefined){
+			//Get all outgoing transitions
+			transitions = nodes.outgoers('edge')
+			//Add loops
+			nodes.each(function(i, node){
+				transitions = transitions.add(node.edgesTo(node));
+			});
+		}
+		//Get only outgoing transitions with matching symbol
+		else{
+			transitions = nodes.outgoers('edge').filter( function(i, transition){
+				if($.inArray(symbol, transition.data('transitionSymbols')) > -1){
+					return true;
+				}
+				return false;
+			});
+			nodes.each(function(i, node){
+				var transitionLoops = node.edgesTo(node).filter( function(i, transition){
+					if($.inArray(symbol, transition.data('transitionSymbols')) > -1){
+						return true;
+					}
+					return false;
+				});
+				transitions = transitions.add(transitionLoops);
+			});
+		}
+		return transitions;
+	}
+	
+	function getTransitionNodes(nodes, symbol){
+		if(nodes === undefined)
+			return
+		var transitionNodes = cy.collection();
+		if(symbol === undefined){
+			//Get all reachable nodes
+			transitionNodes = nodes.outgoers('node')
+			//Add loops
+			nodes.each(function(i, node){
+				if(node.edgesTo(node).length > 1){
+					transitionNodes = transitionNodes.add(node);
+				}
+			});
+		}
+		//Get only outgoing transitions with matching symbol
+		else{
+			var transitionEdges = getTransitions(nodes, symbol);
+			transitionEdges.each(function(i, edge){
+				transitionNodes = transitionNodes.add(edge.target());
+			});
+		}
+		return transitionNodes;
+	}
+	
+	//Adds a cy collection to the array if it's not already contained
+	function setAdd(array, collectionElement){
+		for(var i = 0; i < array.length; i++){
+			if(array[i].same(collectionElement)){
+				return false;
+			}
+		}
+		array.push(collectionElement);
+		return true;
+	}
+	
+	function containsEndState(collection){
+		var containsEndState = false;
+		collection.each(function(i, element){
+			if(element.data('isEndState')){
+				containsEndState = true;
+				return;
+			}
+		});
+		return containsEndState;
+	}
+	
+	function getCombinedId(collection){
+		//Sort by ascending ID
+		collection = collection.sort(function (a, b){
+			return a.id() > b.id();
+		});
+		var combinedId = "";
+		for(var i = 0; i < collection.length; i++){
+			combinedId += collection[i].id();
+		}
+		return combinedId;
+	}
+	
 	
 	/* E V E N T S */
 	
@@ -360,7 +454,7 @@
 	});
 	
 	$(document).on('change', '#checkEndState', function(){
-		setEndState($(this).prop('checked'));
+		setEndState(editNode, $(this).prop('checked'));
 	});
 	
 	$(document).on('change', '#checkHasLoop', function(){
@@ -413,12 +507,6 @@
 		}
 	});
 	
-	cy.on('tapdrag', function(event){
-		if(linkingMode){
-			cy.$('#linker').renderedPosition(event.cyRenderedPosition);
-		}
-	});
-	
 	//Right click or 2 finger tap
 	cy.on('cxttap', function(event){
 		//Event is on canvas
@@ -450,6 +538,14 @@
 		}
 	});
 	
+	cy.on('tapdrag', function(event){
+		if(linkingMode){
+			cy.$('#linker').renderedPosition(event.cyRenderedPosition);
+		}
+	});
+	
+	/* B U T T O N S */
+	
 	$('#configToggle').on('click', function(){
 		$('body').toggleClass('config-closed');
 		cy.resize();
@@ -464,58 +560,53 @@
 	});
 	
 	$('#btnSave').on('click', function(){
-		console.log(cy.json());
+		var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(cy.elements().json()));
+		var anchorElement = $('#saveAnchor');
+		anchorElement.attr("href", dataStr);
+		anchorElement.attr("download", "graph.json");
+		anchorElement.trigger('click');
 	});
 	
 	$('#btnAnalyzeGraph').on('click', function(){
 		analyzeGraph();
+		$('#modalAnalyzedGraph').modal('show');
 	});
 	
 	//Debug Button for console logs
 	$('#btnDebug').on('click', function(){
-		analyzeGraph();
+		toDFA();
 	});
 	
-	
 	/* A L G O R I T H M S */
-	
-	//Get all possible transition edges from a node
-	function getTransitions(node){
-		//Get all outgoing transitions
-		var transitions = node.outgoers('edge')
-		//Add loops
-		transitions = transitions.add(node.edgesTo(node));
-		return transitions;
-	}
 	
 	function analyzeGraph(){
 		
 		var isDFA = true;
-		var countStartStates = 0;
-		var countEndStates = 0;
-		var countTransitions = 0;
+		var startStateCount = 0;
+		var endStateCount = 0;
+		var transitionCount = 0;
 		
 		//Get all real nodes
 		var allNodes = cy.nodes('[!isGhost]');
 		var numStates = allNodes.length;
 		allNodes.each(function(i, node){
 			if(node.data('isStartState'))
-				countStartStates++;
+				startStateCount++;
 			if(node.data('isEndState'))
-				countEndStates++;
+				endStateCount++;
 			var transitions = getTransitions(node);
 			$.each(inputAlphabet, function(j, symbol){
 				var symbolTransitionCount = 0;
 				transitions.each(function(k,transition){
 					if($.inArray(symbol,transition.data('transitionSymbols')) > -1){
-						symbolTransitionCounter++;
+						symbolTransitionCount++;
 					}
-					if(symbolTransitionCounter > 1){
+					if(symbolTransitionCount > 1){
 						isDFA = false;
 					}
-					console.log(symbolTransitionCounter);
+					console.log(symbolTransitionCount);
 				});
-				countTransitions += symbolTransitionCounter;
+				transitionCount += symbolTransitionCount;
 			});
 		});
 	}
@@ -561,41 +652,79 @@
 	
 	//Function for animating each field in the highlightPath
 	var highlightPathNext = function(){
-		//TODO: use animation!
 		if(highlightCount < highlightPath.length){
-			highlightPath[highlightCount].each(function(i,ele){
-				var highlightAni = ele.animation({
-					style: {
-						'background-color': '#61bffc',
-						'line-color': '#61bffc',
-						'target-arrow-color': '#61bffc',
-						'source-arrow-color': '#61bffc',
-					},
-						duration: 750
-				});
-				highlightAni.play();
-				highlightAni.promise('completed').then(function(){
-				highlightAni.reverse().play();
-				});
-			});
+			if(highlightCount != 0){
+				highlightPath[highlightCount-1].removeClass('highlighted');
+			}
+			highlightPath[highlightCount].addClass('highlighted');
 			highlightCount++;
 			setTimeout(highlightPathNext , 1000);
 		}
 		else{
 			var accepted = false;
-			highlightPath[highlightCount-1].each(function(i, ele){
-				if(ele.data('isEndState')){
-					accepted = true;
-				}
-			});
+			if(containsEndState(highlightPath[highlightCount-1])){
+				accepted = true;
+			}
 			if(accepted){
 				alert(inputWord + ' wurde akzeptiert!');
 			}
 			else{
 				alert(inputWord + ' wurde NICHT akzeptiert!');
 			}
-			//cy.elements().removeClass('highlighted')
+			cy.elements().removeClass('highlighted')
 			
+		}
+	}
+	
+	function logStateArray(array){
+		$.each(array, function(i, elements){
+			var stateNames = "";
+			elements.each(function(j, state){
+				stateNames += state.data('name');
+			});
+			console.log('States:' + i + '=' + stateNames);
+		});
+	}
+	
+	function toDFA(){
+		var startStates = cy.nodes('[?isStartState]');
+		if(startStates.empty()){
+			return;
+		}
+		var workingStates = [startStates];
+		var allStates = [startStates];
+		var startStatesId = 'dfa' + getCombinedId(startStates);	
+		cy.add([
+			{ group: "nodes", data: { id: startStatesId, name: startStatesId, isStartState: false, isEndState: false, hasLoop: false } },
+		]);
+		setStartState(cy.$('#' + startStatesId),true);
+		
+		if(containsEndState(startStates))
+			setEndState(cy.$('#' + startStatesId), true);
+		
+		while(workingStates.length > 0){
+			var newStates = [];
+			$.each(workingStates, function(i, currentState){
+				var currentStateId = 'dfa' + getCombinedId(currentState);
+				$.each(inputAlphabet, function(j, symbol){
+					var reachedState = getTransitionNodes(currentState, symbol);
+					var reachedStateId = 'dfa' + getCombinedId(reachedState);
+					if(setAdd(allStates, reachedState)){
+						//Todo: Use name instead of internal id's
+						cy.add([
+							{ group: "nodes", data: { id: reachedStateId, name: reachedStateId, isStartState: false, isEndState: false, hasLoop: false } },
+						]);
+						if(containsEndState(reachedState))
+							setEndState(cy.$('#'+reachedStateId),true);
+						newStates.push(reachedState);
+					}
+					cy.add([
+						{ group: "edges", data: { id: 'dfaE' + edgeCounter, source: currentStateId, transitionSymbols: [symbol], symbolsText: symbol, target: reachedStateId } }
+					]);
+					edgeCounter++;
+				});
+			});
+			workingStates = $.extend([], newStates);
 		}
 	}
 	

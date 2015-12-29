@@ -33,7 +33,7 @@
 			right: 0;
 			top: 0;
 			bottom: 0;
-			width: 20em;
+			width: 18em;
 			background: rgba(0, 0, 0, 0.75);
 			box-sizing: border-box;
 			padding: 1em;
@@ -122,12 +122,14 @@
 					<label for="inputWord">Eingabewort:</label>
 					<input type="text" class="form-control" id="inputWord" placeholder="bsp. abab">
 				</div>
-				<button class="btn btn-default" id="btnTestWord">Testen</button>
-				<button class="btn btn-default" id="btnDebug">Debug</button>
-				<button class="btn btn-default btn-lg" id="btnSave">Log Graph JSON</button>
+				<button class="btn btn-info btn-lg" id="btnTestWord">Eingabe testen</button>
+				<button class="btn btn-info btn-lg" id="btnToDFA">In DFA umwandeln</button>
 				<button type="button" class="btn btn-info btn-lg" id="btnAnalyzeGraph">
 					Graph analysieren
 				</button>
+				<button class="btn btn-default btn-lg" id="btnSave">Graph speichern</button>
+				<label for="btnSave"><a id="saveAnchor">JSON Speichern</a></label>
+				
 			</form>
 		</div>
 		
@@ -195,4 +197,3 @@
 		</div>
 	</body>
 </html>
-		
