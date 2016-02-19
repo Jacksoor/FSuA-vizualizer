@@ -109,6 +109,20 @@
 			<h2>Optionen</h2>
 			<form id='graphSettings'>
 				<div class="form-group">
+					<label for="btn-group">Aktiver Automat:</label><br>
+					<div class="btn-group">
+					<button type="button" class="btn btn-info btn-lg dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+						<span id="textActiveAutomata">Automat 1</span> <span class="caret"></span>
+					</button>
+					<ul class="dropdown-menu" id="listAvaiableAutomatas">
+						<li><a href="#" value="1">Automat 1</a></li>
+					</ul>
+					</div>
+					<button type="button" class="btn btn-success btn-lg" id="btnAddAutomata">
+						<span class="glyphicon glyphicon-plus" aria-hidden="true"></span>
+					</button>
+				</div>
+				<div class="form-group">
 					<label for="inputAlphabet">Eingabealphabet:</label>
 					<input type="text" id="inputAlphabet" data-role="tagsinput">
 					<script>

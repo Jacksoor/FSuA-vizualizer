@@ -14,7 +14,7 @@
 			'padding-left': '6px',
 			'padding-right': '6px',
 			'padding-top': '6px',
-			'padding-bottom': '6px'  ,
+			'padding-bottom': '6px',
 			'text-valign': 'center',
 			'background-color': 'white',
 			'transition-property': 'color, border-color, background-color',
@@ -33,7 +33,7 @@
 			'target-arrow-shape': 'triangle',
 			'target-arrow-color': 'black',
 			'line-color': 'black',
-			'transition-property': 'line-color, target-arrow-color, source-arrow-color',
+			'transition-property': 'color, line-color, target-arrow-color, source-arrow-color',
 			'transition-duration': '0.75s',
 			'edge-text-rotation': 'autorotate',
 			'z-index' : '1'
@@ -58,6 +58,7 @@
 			'line-color': '#D8D8D8',
 			'source-arrow-color': '#D8D8D8',
 			'target-arrow-color': '#D8D8D8',
+			'z-index': '0',
 		})
 		.selector(':selected')
 		.css({
@@ -111,6 +112,9 @@
 		}
 	});
 	
+	var automataCounter = 1;
+	var activeAutomata = 1;
+	var avaiableAutomatas = [{id: 1, name: 'Automat 1'}];
 	var stateCounter = 0;
 	var edgeCounter = 0;
 	var ghostCounter = 0;
@@ -128,6 +132,35 @@
 	var inputAlphabet = [];
 	
 	/* F U N C T I O N S */
+	function createNewAutomata(){
+		automataCounter++;
+		avaiableAutomatas.push({id: automataCounter, name: 'Automat ' + automataCounter});
+		$('#listAvaiableAutomatas').append($('<li></li>').append($('<a href="#"></a>').attr('value', automataCounter).text('Automat ' + automataCounter)));
+		switchAutomata(automataCounter);
+	}
+	
+	function switchAutomata(automataId){
+		if(linkingMode){
+			endLinkingMode();
+		}
+		$.each(avaiableAutomatas, function(i, automata){
+			if(automata.id == automataId){
+				$('#textActiveAutomata').text(automata.name);
+				return;
+			}
+		});
+		var oldAutomata = cy.elements('[automataId = ' + activeAutomata +']');
+		oldAutomata.addClass('inactive');
+		oldAutomata.lock();
+		oldAutomata.ungrabify();
+		var newAutomata = cy.elements('[automataId = ' + automataId +']');
+		newAutomata.unlock();
+		newAutomata.grabify();
+		newAutomata.removeClass('inactive');
+		activeAutomata = automataId;
+	}
+	
+	
 	function startLinkingMode(event){
 		linkSourceNode = event.cyTarget;
 		linkSourceNode.addClass('link');
@@ -166,7 +199,7 @@
 			}
 			if(linkSourceNode.edgesTo('#'+event.cyTarget.id()).length == 0){
 				cy.add([
-					{ group: "edges", data: { id: "e"+edgeCounter, source: linkSourceNode.id(), transitionSymbols: [], symbolsText: '', target: event.cyTarget.id() } },
+					{ group: "edges", data: { id: "e"+edgeCounter, automataId: activeAutomata, source: linkSourceNode.id(), transitionSymbols: [], symbolsText: '', target: event.cyTarget.id() } },
 				]);
 				edgeCounter++;
 			}
@@ -281,6 +314,8 @@
 		inputSymbols.tagsinput('focus');
 	}
 	
+	/* N O D E  F U N C T I O N S */
+	
 	function setStateName(node, newName){
 		node.data('name', newName);
 	}
@@ -292,8 +327,8 @@
 			var anchorPosition = jQuery.extend({}, node.position());
 			anchorPosition.x -= 75;
 			cy.add([
-				{ group: "nodes", data: { id: "gn"+ghostCounter , isGhost: true, isGhostStartNode: true, toStartNode: node.id() }, grabbable: false, position: anchorPosition },
-				{ group: "edges", data: { id: "ge"+ghostCounter, source: "gn"+ghostCounter, target: node.id(), isGhost: true  } },
+				{ group: "nodes", data: { id: "gn"+ghostCounter, automataId: activeAutomata, isGhost: true, isGhostStartNode: true, toStartNode: node.id() }, grabbable: false, position: anchorPosition },
+				{ group: "edges", data: { id: "ge"+ghostCounter, automataId: activeAutomata, source: "gn"+ghostCounter, target: node.id(), isGhost: true  } },
 			]);
 			cy.$('#gn'+ghostCounter).addClass('ghostNode');
 			//Add ghost node as Attribute
@@ -321,7 +356,7 @@
 		//Create new self loop
 		if(boolParam){
 			cy.add([
-				{ group: "edges", data: { id: "e"+edgeCounter, source: node.id(), target: node.id(), transitionSymbols: [], symbolsText: ''}, classes: 'loop' },
+				{ group: "edges", data: { id: "e"+edgeCounter, automataId: activeAutomata, source: node.id(), target: node.id(), transitionSymbols: [], symbolsText: ''}, classes: 'loop' },
 			]);
 			edgeCounter++;
 		}
@@ -347,6 +382,8 @@
 			}
 		});
 	}
+	
+	/* A L G O R I T H M  F U N C T I O N S */
 	
 	//Get all possible transition edges from a node
 	function getTransitions(nodes, symbol){
@@ -440,7 +477,6 @@
 		return combinedId;
 	}
 	
-	
 	/* E V E N T S */
 	
 	//Prevent submits forms
@@ -492,9 +528,14 @@
 		}
 	});
 	
+	/* C Y T O S C A P E  E V E N T S */
+	
 	//Double click and single click distinguish
 	var clicks = 0;
 	cy.on('tap', 'node', function(event) {
+		var target = event.cyTarget;
+		if(target.id() != "linker" && target.data('automataId') != activeAutomata)
+			return;
 		clicks++;
 		if (clicks == 1) {
 			setTimeout(function(){
@@ -509,12 +550,14 @@
 	});
 	
 	cy.on('tap', 'edge', function(event){
-		showEdgeSettings(event);
+		if(event.cyTarget.data('automataId') == activeAutomata){
+			showEdgeSettings(event);
+		}
 	});
 	
 	//Event to move ghost start node with actual node
 	cy.on('drag' , 'node', function(event){
-		if(event.cyTarget.data('isStartState')){
+		if(event.cyTarget.data('automataId') == activeAutomata && event.cyTarget.data('isStartState')){
 			var anchorPosition = jQuery.extend({}, event.cyTarget.position());
 			anchorPosition.x -= 75;
 			cy.$(event.cyTarget.data('startGhost')).position(anchorPosition);
@@ -527,18 +570,25 @@
 		if(event.cyTarget === cy){
 			//Add a new node
 			cy.add([
-				{ group: "nodes", data: { id: "z"+stateCounter , name: "z"+stateCounter, isStartState: false, isEndState: false, hasLoop: false }, renderedPosition: event.cyRenderedPosition },
+				{ group: "nodes", data: { id: "z"+stateCounter , automataId: activeAutomata, name: "z"+stateCounter, isStartState: false, isEndState: false, hasLoop: false }, renderedPosition: event.cyRenderedPosition },
 			]);
 			stateCounter++;
 		}
 		else if(event.cyTarget.isNode()){
+			//Only active automatas are modifiable
+			if(event.cyTarget.data('automataId') != activeAutomata)
+				return;
+			
 			if(event.cyTarget.data('isGhostStartNode')){
 				setStartState(cy.$(event.cyTarget.data('toStartNode')), false);
 				return;
 			}
+			//TODO: Remove Start State ghost nodes.
 			cy.remove(event.cyTarget);
 		}
 		else if(event.cyTarget.isEdge()){
+			if(event.cyTarget.data('automataId') != activeAutomata)
+				return;
 			//Adjust properties of looped node
 			if(event.cyTarget.isLoop()){
 				setLoop(event.cyTarget.source(), false);
@@ -559,11 +609,18 @@
 	});
 	
 	/* B U T T O N S */
-	
 	$('#configToggle').on('click', function(){
 		$('body').toggleClass('config-closed');
 		cy.resize();
 	});
+	
+	$('#btnAddAutomata').on('click' ,function(){
+		createNewAutomata();
+	});
+	
+	$("#listAvaiableAutomatas").on('click', 'li a', function(){
+		switchAutomata(parseInt($(this).attr('value')));
+   });
 	
 	$('#inputAlphabet').on('itemAdded itemRemoved', function(event){
 		inputAlphabet = $('#inputAlphabet').tagsinput('items');
@@ -592,7 +649,8 @@
 	});
 	
 	$('#btnTest').on('click', function(){
-		cy.elements().addClass('inactive');
+		console.log(cy.elements('[ automataId = ' + activeAutomata+']'));
+		console.log(cy.elements());
 	})
 	
 	/* A L G O R I T H M S */
