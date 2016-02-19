@@ -14,10 +14,10 @@
 			'padding-left': '6px',
 			'padding-right': '6px',
 			'padding-top': '6px',
-			'padding-bottom': '6px',
+			'padding-bottom': '6px'  ,
 			'text-valign': 'center',
 			'background-color': 'white',
-			'transition-property': 'background-color',
+			'transition-property': 'color, border-color, background-color',
 			'transition-duration': '0.5s',
 			'color': 'black',
 			'border-width': '2px',
@@ -44,18 +44,27 @@
 			'source-arrow-shape': 'triangle',
 			'source-arrow-color': 'black'
 		})
+		.selector('.endState')
+		.css({
+			'border-width': '5px',
+			'border-style': 'double',
+			'border-color': 'black',
+		})
+		.selector('.inactive')
+		.css({
+			'transition-duration': '0.5s',
+			'color': '#D8D8D8',
+			'border-color': '#D8D8D8',
+			'line-color': '#D8D8D8',
+			'source-arrow-color': '#D8D8D8',
+			'target-arrow-color': '#D8D8D8',
+		})
 		.selector(':selected')
 		.css({
 			'background-color': 'black',
 			'line-color': 'black',
 			'target-arrow-color': 'black',
 			'source-arrow-color': 'black'
-		})
-		.selector('.endState')
-		.css({
-			'border-width': '5px',
-			'border-style': 'double',
-			'border-color': 'black',
 		})
 		.selector('.ghostNode')
 		.css({
@@ -65,7 +74,12 @@
 			'padding-bottom': '0px',
 			'width': '0px',
 			'height': '0px',
-			'z-index' : '0'
+			'border-width': '0.001px',
+			'z-index' : '0',
+		})
+		.selector('.hidden')
+		.css({
+			'display': 'none',
 		})
 		.selector('.link')
 		.css({
@@ -136,7 +150,7 @@
 		if(linkSourceNode == null){
 			//Ghost nodes cannot be used for links
 			if(event.cyTarget.data('isGhost'))
-			return;
+				return;
 			startLinkingMode(event);
 		}
 		//Unselect selected node
@@ -210,7 +224,7 @@
 		//First time function call, create a new dummy node with tip
 		if(apiTipEdgeSettings == null){
 			cy.add([
-				{ group: "nodes", data: { id: "dummy", isGhost: true}, classes:'ghostNode', grabbable: false, renderedPosition: event.cyRenderedPosition },
+			{ group: "nodes", data: { id: "dummy", isGhost: true}, classes: 'ghostNode hidden', grabbable: false, renderedPosition: event.cyRenderedPosition },
 			]);
 			
 			//Add qTip to dummy node
@@ -267,8 +281,8 @@
 		inputSymbols.tagsinput('focus');
 	}
 	
-	function setStateName(newName){
-		editNode.data('name', newName);
+	function setStateName(node, newName){
+		node.data('name', newName);
 	}
 	
 	function setStartState(node, boolParam){
@@ -278,16 +292,16 @@
 			var anchorPosition = jQuery.extend({}, node.position());
 			anchorPosition.x -= 75;
 			cy.add([
-				{ group: "nodes", data: { id: "gn"+ghostCounter , isGhost: true, isGhostStartNode: true, toStartNode: node }, grabbable: false, position: anchorPosition },
+				{ group: "nodes", data: { id: "gn"+ghostCounter , isGhost: true, isGhostStartNode: true, toStartNode: node.id() }, grabbable: false, position: anchorPosition },
 				{ group: "edges", data: { id: "ge"+ghostCounter, source: "gn"+ghostCounter, target: node.id(), isGhost: true  } },
 			]);
 			cy.$('#gn'+ghostCounter).addClass('ghostNode');
 			//Add ghost node as Attribute
-			node.data('startGhost', cy.$("#gn"+ghostCounter));
+			node.data('startGhost', "#gn"+ghostCounter);
 			ghostCounter++;
 		}
 		else{
-			node.data('startGhost').remove();
+			cy.$(node.data('startGhost')).remove();
 		}
 	}
 	
@@ -446,7 +460,7 @@
 	
 	//Get settings changes for each created checkbox
 	$(document).on('change', '#inputStateName', function(){
-		setStateName($(this).val());
+		setStateName(editNode, $(this).val());
 	});
 	
 	$(document).on('change', '#checkStartState', function(){
@@ -503,7 +517,7 @@
 		if(event.cyTarget.data('isStartState')){
 			var anchorPosition = jQuery.extend({}, event.cyTarget.position());
 			anchorPosition.x -= 75;
-			event.cyTarget.data('startGhost').position(anchorPosition);
+			cy.$(event.cyTarget.data('startGhost')).position(anchorPosition);
 		}
 	});
 	
@@ -519,7 +533,7 @@
 		}
 		else if(event.cyTarget.isNode()){
 			if(event.cyTarget.data('isGhostStartNode')){
-				setStartState(event.cyTarget.data('toStartNode'), false);
+				setStartState(cy.$(event.cyTarget.data('toStartNode')), false);
 				return;
 			}
 			cy.remove(event.cyTarget);
@@ -573,9 +587,13 @@
 	});
 	
 	//Debug Button for console logs
-	$('#btnDebug').on('click', function(){
+	$('#btnToDFA').on('click', function(){
 		toDFA();
 	});
+	
+	$('#btnTest').on('click', function(){
+		cy.elements().addClass('inactive');
+	})
 	
 	/* A L G O R I T H M S */
 	
@@ -686,40 +704,47 @@
 		});
 	}
 	
+	var dfaCount = 0;
+	
 	function toDFA(){
 		var startStates = cy.nodes('[?isStartState]');
-		if(startStates.empty()){
+		if(startStates.empty())
 			return;
-		}
 		var workingStates = [startStates];
 		var allStates = [startStates];
-		var startStatesId = 'dfa' + getCombinedId(startStates);	
+		var startStatesId = getCombinedId(startStates);
 		cy.add([
-			{ group: "nodes", data: { id: startStatesId, name: startStatesId, isStartState: false, isEndState: false, hasLoop: false } },
+			{ group: "nodes", data: { id: 'dfa' + startStatesId, name: startStatesId, isStartState: false, isEndState: false, hasLoop: false } },
 		]);
-		setStartState(cy.$('#' + startStatesId),true);
+		setStartState(cy.$('#dfa' + startStatesId),true);
 		
 		if(containsEndState(startStates))
-			setEndState(cy.$('#' + startStatesId), true);
+			setEndState(cy.$('#dfa' + startStatesId), true);
 		
 		while(workingStates.length > 0){
 			var newStates = [];
 			$.each(workingStates, function(i, currentState){
-				var currentStateId = 'dfa' + getCombinedId(currentState);
+				var currentStateId = getCombinedId(currentState);
 				$.each(inputAlphabet, function(j, symbol){
 					var reachedState = getTransitionNodes(currentState, symbol);
-					var reachedStateId = 'dfa' + getCombinedId(reachedState);
+					var reachedStateId = getCombinedId(reachedState);
 					if(setAdd(allStates, reachedState)){
-						//Todo: Use name instead of internal id's
-						cy.add([
-							{ group: "nodes", data: { id: reachedStateId, name: reachedStateId, isStartState: false, isEndState: false, hasLoop: false } },
-						]);
+						if(reachedStateId != ""){
+							cy.add([
+								{ group: "nodes", data: { id: 'dfa' + reachedStateId, name: reachedStateId, isStartState: false, isEndState: false, hasLoop: false } },
+							]);
+						}
+						else{
+							cy.add([
+								{ group: "nodes", data: { id: 'dfa' + reachedStateId, name: '∅', isStartState: false, isEndState: false, hasLoop: false } },
+							]);
+						}
 						if(containsEndState(reachedState))
-							setEndState(cy.$('#'+reachedStateId),true);
+							setEndState(cy.$('#dfa'+reachedStateId),true);
 						newStates.push(reachedState);
 					}
 					cy.add([
-						{ group: "edges", data: { id: 'dfaE' + edgeCounter, source: currentStateId, transitionSymbols: [symbol], symbolsText: symbol, target: reachedStateId } }
+						{ group: "edges", data: { id: 'dfaE' + edgeCounter, source: 'dfa' + currentStateId, transitionSymbols: [symbol], symbolsText: symbol, target: 'dfa' + reachedStateId } }
 					]);
 					edgeCounter++;
 				});
