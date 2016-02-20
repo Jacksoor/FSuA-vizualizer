@@ -40,6 +40,7 @@
 		})
 		.selector('.loop')
 		.css({
+			'transition-duration': '0s',
 			'target-arrow-shape': 'none',
 			'source-arrow-shape': 'triangle',
 			'source-arrow-color': 'black'
@@ -113,12 +114,11 @@
 	});
 	
 	var automataCounter = 1;
-	var activeAutomata = 1;
-	var avaiableAutomatas = [{id: 1, name: 'Automat 1'}];
-	var stateCounter = 0;
-	var edgeCounter = 0;
-	var ghostCounter = 0;
+	var nextId = 0;
+	var automatas = [{id: 1, name: 'Automat 1', nextState: 0, inputAlphabet: []}];
+	var activeAutomata = automatas[0];
 	
+	var preventEvent = false;
 	var linkSourceNode = null;
 	var linkingMode = false;
 	
@@ -129,35 +129,49 @@
 	var editNode = null;
 	var editEdge = null;
 	
-	var inputAlphabet = [];
-	
 	/* F U N C T I O N S */
-	function createNewAutomata(){
+	function createNewAutomata(alphabet){
 		automataCounter++;
-		avaiableAutomatas.push({id: automataCounter, name: 'Automat ' + automataCounter});
+		var automataAlphabet = [];
+		if(alphabet !== undefined){
+			automataAlphabet = $.extend([],alphabet);
+		}
+		automatas.push({id: automataCounter, name: 'Automat ' + automataCounter, nextState: 0, inputAlphabet: automataAlphabet});
 		$('#listAvaiableAutomatas').append($('<li></li>').append($('<a href="#"></a>').attr('value', automataCounter).text('Automat ' + automataCounter)));
 		switchAutomata(automataCounter);
 	}
 	
 	function switchAutomata(automataId){
-		if(linkingMode){
+		if(linkingMode)
 			endLinkingMode();
-		}
-		$.each(avaiableAutomatas, function(i, automata){
+		if(automataId == activeAutomata.id)
+			return;
+		
+		var selectedAutomata;
+		$.each(automatas, function(i, automata){
 			if(automata.id == automataId){
 				$('#textActiveAutomata').text(automata.name);
+				selectedAutomata = automata;
 				return;
 			}
 		});
-		var oldAutomata = cy.elements('[automataId = ' + activeAutomata +']');
-		oldAutomata.addClass('inactive');
-		oldAutomata.lock();
-		oldAutomata.ungrabify();
-		var newAutomata = cy.elements('[automataId = ' + automataId +']');
-		newAutomata.unlock();
-		newAutomata.grabify();
-		newAutomata.removeClass('inactive');
-		activeAutomata = automataId;
+		//Prevent tagsinput add and remove events
+		preventEvent = true;
+		$('#inputAlphabet').tagsinput('removeAll');
+		$.each(selectedAutomata.inputAlphabet, function(i, tag){
+			$('#inputAlphabet').tagsinput('add' , tag);
+		});
+		
+		var oldAutomataElements = cy.elements('[automataId = ' + activeAutomata.id +']');
+		oldAutomataElements.addClass('inactive');
+		oldAutomataElements.lock();
+		oldAutomataElements.ungrabify();
+		var newAutomataElements = cy.elements('[automataId = ' + automataId +']');
+		newAutomataElements.unlock();
+		newAutomataElements.grabify();
+		newAutomataElements.removeClass('inactive');
+		activeAutomata = selectedAutomata;
+		preventEvent = false;
 	}
 	
 	
@@ -174,8 +188,7 @@
 	function endLinkingMode(){
 		linkSourceNode.removeClass('link');
 		linkSourceNode = null;
-		cy.$('#linker').remove();
-		cy.nodes().unlock();
+		cy.getElementById('linker').remove();
 		linkingMode = false;
 	}
 	
@@ -199,9 +212,9 @@
 			}
 			if(linkSourceNode.edgesTo('#'+event.cyTarget.id()).length == 0){
 				cy.add([
-					{ group: "edges", data: { id: "e"+edgeCounter, automataId: activeAutomata, source: linkSourceNode.id(), transitionSymbols: [], symbolsText: '', target: event.cyTarget.id() } },
+					{ group: "edges", data: { id: "e"+nextId, automataId: activeAutomata.id, source: linkSourceNode.id(), transitionSymbols: [], symbolsText: '', target: event.cyTarget.id() } },
 				]);
-				edgeCounter++;
+				nextId++;
 			}
 			endLinkingMode();
 		}
@@ -250,8 +263,9 @@
 	}
 	
 	function showEdgeSettings(event){
+		var targetEdge = event.cyTarget;
 		//Ghost edges have no settings!
-		if(event.cyTarget.data('isGhost'))
+		if(targetEdge.data('isGhost') || targetEdge.data('isStartEdge'))
 			return;
 		
 		//First time function call, create a new dummy node with tip
@@ -305,13 +319,124 @@
 		inputSymbols.tagsinput('removeAll');
 			
 		//Implement function to add all tags at once
-		$.each(event.cyTarget.data('transitionSymbols'), function(i, tag){
+		$.each(targetEdge.data('transitionSymbols'), function(i, tag){
 			inputSymbols.tagsinput('add' , tag);
 		});
 		
-		editEdge = event.cyTarget;
+		editEdge = targetEdge;
 		apiTipEdgeSettings.show();
 		inputSymbols.tagsinput('focus');
+	}
+	/* G R A P H  F U N C T I O N S */
+	
+	function addState(id, name){
+		cy.add([
+			{ group: "nodes", data: { id: id, automataId: activeAutomata.id, name: name, isStartState: false, isEndState: false, hasLoop: false } },
+		]);
+	}
+	
+	//Add a new state to active automata created by the user
+	function addUserState(position){
+		cy.add([
+			{ group: "nodes", data: { id: "z"+nextId , automataId: activeAutomata.id, name: "z"+activeAutomata.nextState, isStartState: false, isEndState: false, hasLoop: false }, renderedPosition: position },
+		]);
+		nextId++;
+		activeAutomata.nextState++;
+	}
+	
+	/* 	Creates an edge with given transiton symbol assigned to the active automata
+		if edge already exsists, symbol is added to the existing edge
+	*/
+	function addEdge(sourceId, targetId, symbol){
+		var sourceNode = cy.getElementById(sourceId);
+		var targetNode = cy.getElementById(targetId);
+		var edge = sourceNode.edgesTo(targetNode);
+		var edgeTransitions = [];
+		var edgeText = '';
+		if(symbol !== undefined){
+			edgeTransitions = [symbol];
+			edgeText = symbol;
+		}
+		if(edge.size() == 0){
+			cy.add([
+				{ group: "edges", data: { id: 'e' + nextId, automataId: activeAutomata.id, source: sourceId, transitionSymbols: edgeTransitions, symbolsText: edgeText, target: targetId } }
+			]);
+			if(sourceId == targetId){
+				sourceNode.data('hasLoop', true);
+				cy.$('#e' + nextId).addClass('loop');
+			}
+			nextId++;
+		}
+		else{
+			addTransitionSymbol(edge[0], symbol);
+		}
+	}
+	
+	function removeEdge(edge){
+		/*Special cases are handled by their respective functions */
+		//Adjust properties of looped node
+		if(edge.isLoop()){
+			setLoop(edge.source(), false);
+			return;
+		}
+		//Removed ghost edge for starting state
+		else if(edge.data('isStartEdge')){
+			setStartState(edge.target(), false);
+			return;
+			
+		}
+		cy.remove(edge);
+	}
+	
+	function applyCoseLayout(){
+		var options = {
+		  name: 'cose',
+
+		  // Called on `layoutready`
+		  ready               : function() {},
+		  // Called on `layoutstop`
+		  stop                : function() {},
+		  // Whether to animate while running the layout
+		  animate             : true,
+		  // The layout animates only after this many milliseconds
+		  // (prevents flashing on fast runs)
+		  animationThreshold  : 250,
+		  // Number of iterations between consecutive screen positions update
+		  // (0 -> only updated on the end)
+		  refresh             : 20,
+		  // Whether to fit the network view after when done
+		  fit                 : false,
+		  // Padding on fit
+		  padding             : 30,
+		  // Constrain layout bounds; { x1, y1, x2, y2 } or { x1, y1, w, h }
+		  boundingBox         : undefined,
+		  // Extra spacing between components in non-compound graphs
+		  componentSpacing    : 100,
+		  // Node repulsion (non overlapping) multiplier
+		  nodeRepulsion       : function( node ){ return 400000; },
+		  // Node repulsion (overlapping) multiplier
+		  nodeOverlap         : 10,
+		  // Ideal edge (non nested) length
+		  idealEdgeLength     : function( edge ){ return 10; },
+		  // Divisor to compute edge forces
+		  edgeElasticity      : function( edge ){ return 100; },
+		  // Nesting factor (multiplier) to compute ideal edge length for nested edges
+		  nestingFactor       : 5,
+		  // Gravity force (constant)
+		  gravity             : 80,
+		  // Maximum number of iterations to perform
+		  numIter             : 1000,
+		  // Initial temperature (maximum node displacement)
+		  initialTemp         : 200,
+		  // Cooling factor (how the temperature is reduced between consecutive iterations
+		  coolingFactor       : 0.95,
+		  // Lower temperature threshold (below this point the layout will end)
+		  minTemp             : 1.0,
+		  // Whether to use threading to speed up the layout
+		  useMultitasking     : true
+		};
+
+		cy.layout( options );
 	}
 	
 	/* N O D E  F U N C T I O N S */
@@ -327,16 +452,16 @@
 			var anchorPosition = jQuery.extend({}, node.position());
 			anchorPosition.x -= 75;
 			cy.add([
-				{ group: "nodes", data: { id: "gn"+ghostCounter, automataId: activeAutomata, isGhost: true, isGhostStartNode: true, toStartNode: node.id() }, grabbable: false, position: anchorPosition },
-				{ group: "edges", data: { id: "ge"+ghostCounter, automataId: activeAutomata, source: "gn"+ghostCounter, target: node.id(), isGhost: true  } },
+				{ group: 'nodes', data: { id: 'gn'+nextId, automataId: activeAutomata.id, isGhost: true }, grabbable: false, position: anchorPosition },
+				{ group: 'edges', data: { id: 'ge'+nextId, automataId: activeAutomata.id, source: 'gn'+nextId, target: node.id(), isStartEdge: true  } },
 			]);
-			cy.$('#gn'+ghostCounter).addClass('ghostNode');
+			cy.getElementById('gn'+nextId).addClass('ghostNode');
 			//Add ghost node as Attribute
-			node.data('startGhost', "#gn"+ghostCounter);
-			ghostCounter++;
+			node.data('startGhost', 'gn'+nextId);
+			nextId++;
 		}
 		else{
-			cy.$(node.data('startGhost')).remove();
+			cy.getElementById(node.data('startGhost')).remove();
 		}
 	}
 	
@@ -355,10 +480,7 @@
 		node.data('hasLoop', boolParam);
 		//Create new self loop
 		if(boolParam){
-			cy.add([
-				{ group: "edges", data: { id: "e"+edgeCounter, automataId: activeAutomata, source: node.id(), target: node.id(), transitionSymbols: [], symbolsText: ''}, classes: 'loop' },
-			]);
-			edgeCounter++;
+			addEdge(node.id(), node.id());
 		}
 		//Check if theres a self loop
 		else if(node.edgesTo(node).length == 1){
@@ -366,15 +488,20 @@
 		}
 	}
 	
-	function setTransitionSymbols(edge, newTags){
-		edge.data('symbolsText', newTags.val());
+	function setTransitionSymbols(edge, symbolArray){
 		//Save a copy of transition symbols in the node
-		edge.data('transitionSymbols', $.extend([],newTags.tagsinput('items')));
+		edge.data('transitionSymbols', $.extend([],symbolArray));
+		edge.data('symbolsText', symbolArray.toString());
+	}
+	
+	function addTransitionSymbol(edge, symbol){
+		edge.data('transitionSymbols').push(symbol);
+		edge.data('symbolsText', edge.data('transitionSymbols').toString());
 	}
 	
 	//Remove a transition symbol from all edges and update their text
 	function removeFromEdges(transitionSymbol){
-		allEdges = cy.edges();
+		allEdges = cy.edges('[automataId = ' + activeAutomata.id + ']');
 		allEdges.each(function(i,ele){
 			if($.inArray(transitionSymbol, ele.data('transitionSymbols')) > -1){
 				ele.data('transitionSymbols').splice( $.inArray(transitionSymbol, ele.data('transitionSymbols')), 1 );
@@ -382,6 +509,173 @@
 			}
 		});
 	}
+	
+	/* E V E N T S */
+	
+	//Prevent submits forms
+	$(document).on('submit', '#formNodeSettings', function() {
+		qTipSettingsApi.hide();
+		return false;
+	});
+	
+	$(document).on('submit', '#formEdgeSettings', function() {
+		apiTipEdgeSettings.hide();
+		return false;
+	});
+	
+	$(document).on('submit', '#graphSettings', function(){
+		return false;
+	});
+	
+	//Get settings changes for each created checkbox
+	$(document).on('change', '#inputStateName', function(){
+		setStateName(editNode, $(this).val());
+	});
+	
+	$(document).on('change', '#checkStartState', function(){
+		setStartState(editNode, $(this).prop('checked'));
+	});
+	
+	$(document).on('change', '#checkEndState', function(){
+		setEndState(editNode, $(this).prop('checked'));
+	});
+	
+	$(document).on('change', '#checkHasLoop', function(){
+		setLoop(editNode, $(this).prop('checked'));
+	});
+	
+	$('#inputAlphabet').on('itemAdded itemRemoved', function(event){
+		if(!preventEvent){
+			activeAutomata.inputAlphabet = $.extend([],$('#inputAlphabet').tagsinput('items'));
+		}
+	});
+	
+	$('#inputAlphabet').on('itemRemoved', function(event){
+		removeFromEdges(event.item);
+	});
+	
+	$(document).on('itemAdded itemRemoved', '#inputTransitionSymbols', function(){
+		if(editEdge != null){
+			setTransitionSymbols(editEdge, $(this).tagsinput('items'));
+		}
+	});
+	
+	$('#inputTransitionSymbols').on('beforeItemAdd', function(event){
+		if($.inArray(event.item, activeAutomata.inputAlphabet) == -1){
+			edgeSettingsError.stop(true).hide().show().delay(2000).fadeOut();
+			event.cancel = true;
+		}
+	});
+	
+	/* C Y  E V E N T S */
+	
+	//Double click and single click distinguish
+	var clicks = 0;
+	cy.on('tap', 'node', function(event) {
+		var target = event.cyTarget;
+		if(target.id() != "linker" && target.data('automataId') != activeAutomata.id)
+			return;
+		clicks++;
+		if (clicks == 1) {
+			setTimeout(function(){
+				if(clicks == 1) {
+					linkMode(event);
+					} else {
+					showNodeSettings(event);
+				}
+				clicks = 0;
+			}, 150);
+		}
+	});
+	
+	cy.on('tap', 'edge', function(event){
+		if(event.cyTarget.data('automataId') == activeAutomata.id){
+			showEdgeSettings(event);
+		}
+	});
+	
+	//Event to move ghost start node with actual node
+	cy.on('drag' , 'node', function(event){
+		if(event.cyTarget.data('automataId') == activeAutomata.id && event.cyTarget.data('isStartState')){
+			var anchorPosition = jQuery.extend({}, event.cyTarget.position());
+			anchorPosition.x -= 75;
+			cy.getElementById(event.cyTarget.data('startGhost')).position(anchorPosition);
+		}
+	});
+	
+	//Right click or 2 finger tap
+	cy.on('cxttap', function(event){
+		var target = event.cyTarget;
+		//Event is on canvas
+		if(target === cy){
+			addUserState(event.cyRenderedPosition);
+		}
+		else if(target.isNode()){
+			
+			if(target.data('isGhost') || linkingMode && linkSourceNode == target){
+				endLinkingMode();
+				return;
+			}
+			
+			//Only active automatas are modifiable
+			if(target.data('automataId') != activeAutomata.id)
+				return;
+			
+			cy.remove(event.cyTarget);
+		}
+		else if(event.cyTarget.isEdge()){
+			if(event.cyTarget.data('automataId') != activeAutomata.id)
+				return;
+			removeEdge(event.cyTarget);
+		}
+	});
+	
+	cy.on('tapdrag', function(event){
+		if(linkingMode){
+			cy.$('#linker').renderedPosition(event.cyRenderedPosition);
+		}
+	});
+	
+	/* B U T T O N S */
+	$('#configToggle').on('click', function(){
+		$('body').toggleClass('config-closed');
+		cy.resize();
+	});
+	
+	$('#btnAddAutomata').on('click' ,function(){
+		createNewAutomata();
+	});
+	
+	$("#listAvaiableAutomatas").on('click', 'li a', function(){
+		switchAutomata(parseInt($(this).attr('value')));
+   });
+	
+	$('#btnTestWord').on('click', function(){
+		acceptsWord($('#inputWord').val())
+	});
+	
+	$('#btnSave').on('click', function(){
+		var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(cy.elements().json()));
+		var anchorElement = $('#saveAnchor');
+		anchorElement.attr("href", dataStr);
+		anchorElement.attr("download", "graph.json");
+		anchorElement.trigger('click');
+	});
+	
+	$('#btnAnalyzeGraph').on('click', function(){
+		analyzeGraph();
+		$('#modalAnalyzedGraph').modal('show');
+	});
+	
+	//Debug Button for console logs
+	$('#btnToDFA').on('click', function(){
+		toDFA();
+	});
+	
+	$('#btnTest').on('click', function(){
+		console.log(cy.getElementById('z0') == cy.getElementById('z0'));
+		console.log(cy.getElementById('z0') == cy.getElementById('z1'));
+	})
 	
 	/* A L G O R I T H M  F U N C T I O N S */
 	
@@ -477,181 +771,16 @@
 		return combinedId;
 	}
 	
-	/* E V E N T S */
-	
-	//Prevent submits forms
-	$(document).on('submit', '#formNodeSettings', function() {
-		qTipSettingsApi.hide();
-		return false;
-	});
-	
-	$(document).on('submit', '#formEdgeSettings', function() {
-		apiTipEdgeSettings.hide();
-		return false;
-	});
-	
-	$(document).on('submit', '#graphSettings', function(){
-		return false;
-	});
-	
-	//Get settings changes for each created checkbox
-	$(document).on('change', '#inputStateName', function(){
-		setStateName(editNode, $(this).val());
-	});
-	
-	$(document).on('change', '#checkStartState', function(){
-		setStartState(editNode, $(this).prop('checked'));
-	});
-	
-	$(document).on('change', '#checkEndState', function(){
-		setEndState(editNode, $(this).prop('checked'));
-	});
-	
-	$(document).on('change', '#checkHasLoop', function(){
-		setLoop(editNode, $(this).prop('checked'));
-	});
-	
-	$('#inputAlphabet').on('itemRemoved', function(event){
-		removeFromEdges(event.item);
-	});
-	
-	$(document).on('itemAdded itemRemoved', '#inputTransitionSymbols', function(){
-		if(editEdge != null){
-			setTransitionSymbols(editEdge, $(this));
+	function getCombinedName(collection){
+		collection = collection.sort(function (a, b){
+			return a.data('name') > b.data('name');
+		});
+		var combinedName = "";
+		for(var i = 0; i < collection.length; i++){
+			combinedName += collection[i].data('name');
 		}
-	});
-	
-	$('#inputTransitionSymbols').on('beforeItemAdd', function(event){
-		if($.inArray(event.item, inputAlphabet) == -1){
-			edgeSettingsError.stop(true).hide().show().delay(2000).fadeOut();
-			event.cancel = true;
-		}
-	});
-	
-	/* C Y T O S C A P E  E V E N T S */
-	
-	//Double click and single click distinguish
-	var clicks = 0;
-	cy.on('tap', 'node', function(event) {
-		var target = event.cyTarget;
-		if(target.id() != "linker" && target.data('automataId') != activeAutomata)
-			return;
-		clicks++;
-		if (clicks == 1) {
-			setTimeout(function(){
-				if(clicks == 1) {
-					linkMode(event);
-					} else {
-					showNodeSettings(event);
-				}
-				clicks = 0;
-			}, 150);
-		}
-	});
-	
-	cy.on('tap', 'edge', function(event){
-		if(event.cyTarget.data('automataId') == activeAutomata){
-			showEdgeSettings(event);
-		}
-	});
-	
-	//Event to move ghost start node with actual node
-	cy.on('drag' , 'node', function(event){
-		if(event.cyTarget.data('automataId') == activeAutomata && event.cyTarget.data('isStartState')){
-			var anchorPosition = jQuery.extend({}, event.cyTarget.position());
-			anchorPosition.x -= 75;
-			cy.$(event.cyTarget.data('startGhost')).position(anchorPosition);
-		}
-	});
-	
-	//Right click or 2 finger tap
-	cy.on('cxttap', function(event){
-		//Event is on canvas
-		if(event.cyTarget === cy){
-			//Add a new node
-			cy.add([
-				{ group: "nodes", data: { id: "z"+stateCounter , automataId: activeAutomata, name: "z"+stateCounter, isStartState: false, isEndState: false, hasLoop: false }, renderedPosition: event.cyRenderedPosition },
-			]);
-			stateCounter++;
-		}
-		else if(event.cyTarget.isNode()){
-			//Only active automatas are modifiable
-			if(event.cyTarget.data('automataId') != activeAutomata)
-				return;
-			
-			if(event.cyTarget.data('isGhostStartNode')){
-				setStartState(cy.$(event.cyTarget.data('toStartNode')), false);
-				return;
-			}
-			//TODO: Remove Start State ghost nodes.
-			cy.remove(event.cyTarget);
-		}
-		else if(event.cyTarget.isEdge()){
-			if(event.cyTarget.data('automataId') != activeAutomata)
-				return;
-			//Adjust properties of looped node
-			if(event.cyTarget.isLoop()){
-				setLoop(event.cyTarget.source(), false);
-			}
-			//Removed ghost link for starting state
-			else if(event.cyTarget.data('isGhost')){
-				setStartState(event.cyTarget.target(), false);
-				return;
-			}
-			cy.remove(event.cyTarget);
-		}
-	});
-	
-	cy.on('tapdrag', function(event){
-		if(linkingMode){
-			cy.$('#linker').renderedPosition(event.cyRenderedPosition);
-		}
-	});
-	
-	/* B U T T O N S */
-	$('#configToggle').on('click', function(){
-		$('body').toggleClass('config-closed');
-		cy.resize();
-	});
-	
-	$('#btnAddAutomata').on('click' ,function(){
-		createNewAutomata();
-	});
-	
-	$("#listAvaiableAutomatas").on('click', 'li a', function(){
-		switchAutomata(parseInt($(this).attr('value')));
-   });
-	
-	$('#inputAlphabet').on('itemAdded itemRemoved', function(event){
-		inputAlphabet = $('#inputAlphabet').tagsinput('items');
-	});
-	
-	$('#btnTestWord').on('click', function(){
-		acceptsWord($('#inputWord').val())
-	});
-	
-	$('#btnSave').on('click', function(){
-		var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(cy.elements().json()));
-		var anchorElement = $('#saveAnchor');
-		anchorElement.attr("href", dataStr);
-		anchorElement.attr("download", "graph.json");
-		anchorElement.trigger('click');
-	});
-	
-	$('#btnAnalyzeGraph').on('click', function(){
-		analyzeGraph();
-		$('#modalAnalyzedGraph').modal('show');
-	});
-	
-	//Debug Button for console logs
-	$('#btnToDFA').on('click', function(){
-		toDFA();
-	});
-	
-	$('#btnTest').on('click', function(){
-		console.log(cy.elements('[ automataId = ' + activeAutomata+']'));
-		console.log(cy.elements());
-	})
+		return combinedName;
+	}
 	
 	/* A L G O R I T H M S */
 	
@@ -693,7 +822,8 @@
 	
 	function acceptsWord(word){
 		cy.elements().removeClass('highlighted');
-		var currentNodes = cy.elements('node[?isStartState]');
+		//Get all start states from the active automata
+		var currentNodes = cy.nodes('[?isStartState][automataId=' + activeAutomata.id + ']');
 		var path = [];
 		inputWord = word;
 		path.push(currentNodes);
@@ -765,50 +895,51 @@
 	var dfaCount = 0;
 	
 	function toDFA(){
-		var startStates = cy.nodes('[?isStartState]');
+		var startStates = cy.nodes('[?isStartState][automataId=' + activeAutomata.id + ']');
 		if(startStates.empty())
-			return;
+			return; //TODO: Error no start states
+		var automataAlphabet = activeAutomata.inputAlphabet;
 		var workingStates = [startStates];
 		var allStates = [startStates];
-		var startStatesId = getCombinedId(startStates);
-		cy.add([
-			{ group: "nodes", data: { id: 'dfa' + startStatesId, name: startStatesId, isStartState: false, isEndState: false, hasLoop: false } },
-		]);
-		setStartState(cy.$('#dfa' + startStatesId),true);
+		
+		createNewAutomata(automataAlphabet);
+		var prefix = 'dfa' + activeAutomata.id;
+		var startStatesId = prefix + getCombinedId(startStates);
+		var startStatesName = getCombinedName(startStates);
+		addState(startStatesId, startStatesName);
+		var startState = cy.getElementById(startStatesId)
+		setStartState(startState,true);
 		
 		if(containsEndState(startStates))
-			setEndState(cy.$('#dfa' + startStatesId), true);
-		
+			setEndState(startState, true);
 		while(workingStates.length > 0){
 			var newStates = [];
 			$.each(workingStates, function(i, currentState){
-				var currentStateId = getCombinedId(currentState);
-				$.each(inputAlphabet, function(j, symbol){
+				var currentStateId = prefix + getCombinedId(currentState);
+				$.each(automataAlphabet, function(j, symbol){
 					var reachedState = getTransitionNodes(currentState, symbol);
-					var reachedStateId = getCombinedId(reachedState);
+					var reachedStateId = prefix + getCombinedId(reachedState);
+					var reachedStateName = getCombinedName(reachedState)
 					if(setAdd(allStates, reachedState)){
-						if(reachedStateId != ""){
-							cy.add([
-								{ group: "nodes", data: { id: 'dfa' + reachedStateId, name: reachedStateId, isStartState: false, isEndState: false, hasLoop: false } },
-							]);
+						if(reachedStateId != prefix){
+							addState(reachedStateId, reachedStateName);
 						}
 						else{
-							cy.add([
-								{ group: "nodes", data: { id: 'dfa' + reachedStateId, name: '∅', isStartState: false, isEndState: false, hasLoop: false } },
-							]);
+							//Create catch state
+							addState(reachedStateId, '∅');
 						}
 						if(containsEndState(reachedState))
-							setEndState(cy.$('#dfa'+reachedStateId),true);
+							setEndState(cy.getElementById(reachedStateId),true);
 						newStates.push(reachedState);
 					}
-					cy.add([
-						{ group: "edges", data: { id: 'dfaE' + edgeCounter, source: 'dfa' + currentStateId, transitionSymbols: [symbol], symbolsText: symbol, target: 'dfa' + reachedStateId } }
-					]);
-					edgeCounter++;
+					addEdge(currentStateId, reachedStateId, symbol);
 				});
 			});
 			workingStates = $.extend([], newStates);
 		}
+		startState.lock();
+		applyCoseLayout();
+		startState.unlock();
 	}
 	
 });
