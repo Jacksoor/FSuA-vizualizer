@@ -673,8 +673,7 @@
 	});
 	
 	$('#btnTest').on('click', function(){
-		console.log(cy.getElementById('z0') == cy.getElementById('z0'));
-		console.log(cy.getElementById('z0') == cy.getElementById('z1'));
+		console.log(isDFA());
 	})
 	
 	/* A L G O R I T H M  F U N C T I O N S */
@@ -682,11 +681,11 @@
 	//Get all possible transition edges from a node
 	function getTransitions(nodes, symbol){
 		if(nodes === undefined)
-			return
+			return;
 		var transitions;
 		if(symbol === undefined){
 			//Get all outgoing transitions
-			transitions = nodes.outgoers('edge')
+			transitions = nodes.outgoers('edge');
 			//Add loops
 			nodes.each(function(i, node){
 				transitions = transitions.add(node.edgesTo(node));
@@ -713,7 +712,7 @@
 		return transitions;
 	}
 	
-	function getTransitionNodes(nodes, symbol){
+	function getTransitionStates(nodes, symbol){
 		if(nodes === undefined)
 			return
 		var transitionNodes = cy.collection();
@@ -737,8 +736,30 @@
 		return transitionNodes;
 	}
 	
+	//Implementation of a basic object set add
+	function setAdd(set, element){
+		if(Array.isArray(element)){
+			for(var j = 0; j < element.length; j++){
+				if(element[j] in set){
+					return false;
+				}
+			}
+			for(var j = 0; j < element.length; j++){
+				set[element[j]] = true;
+			}
+			return true;
+		}
+		else{
+			if(element in set){
+				return false;
+			}
+			set[element] = true;
+			return true;
+		}
+	}
+	
 	//Adds a cy collection to the array if it's not already contained
-	function setAdd(array, collectionElement){
+	function collectionSetAdd(array, collectionElement){
 		for(var i = 0; i < array.length; i++){
 			if(array[i].same(collectionElement)){
 				return false;
@@ -892,7 +913,38 @@
 		});
 	}
 	
-	var dfaCount = 0;
+	function isDFA(){
+		var startStates = cy.nodes('[?isStartState][automataId=' + activeAutomata.id + ']');
+		if(startStates.empty())
+			return true; //Warning: No Start States, The automata accepts nothing
+		if(startStates.size() > 1)
+			return false; //A DFA can only have one starting state
+		var allStates = startStates.clone();
+		var newStates = cy.nodes('[?isStartState][automataId=' + activeAutomata.id + ']');
+		while(newStates.nonempty()){
+			for(var i = 0; i < newStates.length; i++){
+				var transitions = getTransitions(newStates[i]);
+				var alphabetSet = Object.create(null);
+				for(var j = 0; j < transitions.length; j++){
+					if(!setAdd(alphabetSet, transitions[j].data('transitionSymbols'))){
+						//There are multiple transitions for one symbol
+						return false;
+					};
+				}
+				for(var j = 0; j < activeAutomata.inputAlphabet.length; j++){
+					if(!((activeAutomata.inputAlphabet[j]) in alphabetSet)){
+						//There is a transition missing at newState[i]
+						return false;
+					}
+				}
+			}
+			var transitionStates = getTransitionStates(newStates);
+			//Remove states already reached from transitonStates
+			newStates = transitionStates.difference(allStates);
+			allStates = allStates.union(newStates);
+		}
+		return true;
+	}
 	
 	function toDFA(){
 		var startStates = cy.nodes('[?isStartState][automataId=' + activeAutomata.id + ']');
@@ -917,10 +969,10 @@
 			$.each(workingStates, function(i, currentState){
 				var currentStateId = prefix + getCombinedId(currentState);
 				$.each(automataAlphabet, function(j, symbol){
-					var reachedState = getTransitionNodes(currentState, symbol);
+					var reachedState = getTransitionStates(currentState, symbol);
 					var reachedStateId = prefix + getCombinedId(reachedState);
 					var reachedStateName = getCombinedName(reachedState)
-					if(setAdd(allStates, reachedState)){
+					if(collectionSetAdd(allStates, reachedState)){
 						if(reachedStateId != prefix){
 							addState(reachedStateId, reachedStateName);
 						}
