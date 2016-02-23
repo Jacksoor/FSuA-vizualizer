@@ -34,13 +34,12 @@
 			'target-arrow-color': 'black',
 			'line-color': 'black',
 			'transition-property': 'color, line-color, target-arrow-color, source-arrow-color',
-			'transition-duration': '0.75s',
+			'transition-duration': '0.5s',
 			'edge-text-rotation': 'autorotate',
 			'z-index' : '1'
 		})
 		.selector('.loop')
 		.css({
-			'transition-duration': '0s',
 			'target-arrow-shape': 'none',
 			'source-arrow-shape': 'triangle',
 			'source-arrow-color': 'black'
@@ -115,7 +114,7 @@
 	
 	var automataCounter = 1;
 	var nextId = 0;
-	var automatas = [{id: 1, name: 'Automat 1', nextState: 0, inputAlphabet: []}];
+	var automatas = [{id: 1, name: 'Automat 1', nextState: 0, inputAlphabet: Object.create(null)}];
 	var activeAutomata = automatas[0];
 	
 	var preventEvent = false;
@@ -132,9 +131,9 @@
 	/* F U N C T I O N S */
 	function createNewAutomata(alphabet){
 		automataCounter++;
-		var automataAlphabet = [];
+		var automataAlphabet = Object.create(null);
 		if(alphabet !== undefined){
-			automataAlphabet = $.extend([],alphabet);
+			automataAlphabet = $.extend(Object.create(null),alphabet);
 		}
 		automatas.push({id: automataCounter, name: 'Automat ' + automataCounter, nextState: 0, inputAlphabet: automataAlphabet});
 		$('#listAvaiableAutomatas').append($('<li></li>').append($('<a href="#"></a>').attr('value', automataCounter).text('Automat ' + automataCounter)));
@@ -158,9 +157,9 @@
 		//Prevent tagsinput add and remove events
 		preventEvent = true;
 		$('#inputAlphabet').tagsinput('removeAll');
-		$.each(selectedAutomata.inputAlphabet, function(i, tag){
-			$('#inputAlphabet').tagsinput('add' , tag);
-		});
+		for(var symbol in selectedAutomata.inputAlphabet){
+			$('#inputAlphabet').tagsinput('add' , symbol);
+		}
 		
 		var oldAutomataElements = cy.elements('[automataId = ' + activeAutomata.id +']');
 		oldAutomataElements.addClass('inactive');
@@ -210,12 +209,7 @@
 				endLinkingMode();
 				return;
 			}
-			if(linkSourceNode.edgesTo('#'+event.cyTarget.id()).length == 0){
-				cy.add([
-					{ group: "edges", data: { id: "e"+nextId, automataId: activeAutomata.id, source: linkSourceNode.id(), transitionSymbols: [], symbolsText: '', target: event.cyTarget.id() } },
-				]);
-				nextId++;
-			}
+			addEdge(linkSourceNode.id(), event.cyTarget.id());
 			endLinkingMode();
 		}
 	}
@@ -265,13 +259,13 @@
 	function showEdgeSettings(event){
 		var targetEdge = event.cyTarget;
 		//Ghost edges have no settings!
-		if(targetEdge.data('isGhost') || targetEdge.data('isStartEdge'))
+		if(targetEdge.data('isGhost'))
 			return;
 		
 		//First time function call, create a new dummy node with tip
 		if(apiTipEdgeSettings == null){
 			cy.add([
-			{ group: "nodes", data: { id: "dummy", isGhost: true}, classes: 'ghostNode hidden', grabbable: false, renderedPosition: event.cyRenderedPosition },
+				{ group: "nodes", data: { id: "dummy", isGhost: true}, classes: 'ghostNode hidden', grabbable: false, renderedPosition: event.cyRenderedPosition },
 			]);
 			
 			//Add qTip to dummy node
@@ -319,14 +313,50 @@
 		inputSymbols.tagsinput('removeAll');
 			
 		//Implement function to add all tags at once
-		$.each(targetEdge.data('transitionSymbols'), function(i, tag){
-			inputSymbols.tagsinput('add' , tag);
-		});
+		for(var symbol in targetEdge.data('transitionSymbols')){
+			inputSymbols.tagsinput('add' , symbol);
+		};
 		
 		editEdge = targetEdge;
 		apiTipEdgeSettings.show();
 		inputSymbols.tagsinput('focus');
 	}
+	
+	function download(strData, strFileName, strMimeType) {
+		var D = document,
+			a = D.createElement("a");
+			strMimeType= strMimeType || "application/octet-stream";
+
+
+		if (navigator.msSaveBlob) { // IE10
+			return navigator.msSaveBlob(new Blob([strData], {type: strMimeType}), strFileName);
+		} /* end if(navigator.msSaveBlob) */
+
+
+		if ('download' in a) { //html5 A[download]
+			a.href = "data:" + strMimeType + "," + encodeURIComponent(strData);
+			a.setAttribute("download", strFileName);
+			a.innerHTML = "downloading...";
+			D.body.appendChild(a);
+			setTimeout(function() {
+				a.click();
+				D.body.removeChild(a);
+			}, 66);
+			return true;
+    } /* end if('download' in a) */
+
+
+		//do iframe dataURL download (old ch+FF):
+		var f = D.createElement("iframe");
+		D.body.appendChild(f);
+		f.src = "data:" +  strMimeType   + "," + encodeURIComponent(strData);
+
+		setTimeout(function() {
+			D.body.removeChild(f);
+		}, 333);
+		return true;
+	}
+	
 	/* G R A P H  F U N C T I O N S */
 	
 	function addState(id, name){
@@ -351,10 +381,10 @@
 		var sourceNode = cy.getElementById(sourceId);
 		var targetNode = cy.getElementById(targetId);
 		var edge = sourceNode.edgesTo(targetNode);
-		var edgeTransitions = [];
+		var edgeTransitions = Object.create(null);
 		var edgeText = '';
 		if(symbol !== undefined){
-			edgeTransitions = [symbol];
+			edgeTransitions[symbol] = true;
 			edgeText = symbol;
 		}
 		if(edge.size() == 0){
@@ -363,7 +393,7 @@
 			]);
 			if(sourceId == targetId){
 				sourceNode.data('hasLoop', true);
-				cy.$('#e' + nextId).addClass('loop');
+				cy.getElementById('e' + nextId).addClass('loop');
 			}
 			nextId++;
 		}
@@ -449,11 +479,11 @@
 		node.data('isStartState',boolParam);
 		if(boolParam){
 			//Copy position
-			var anchorPosition = jQuery.extend({}, node.position());
+			var anchorPosition = $.extend({}, node.position());
 			anchorPosition.x -= 75;
 			cy.add([
 				{ group: 'nodes', data: { id: 'gn'+nextId, automataId: activeAutomata.id, isGhost: true }, grabbable: false, position: anchorPosition },
-				{ group: 'edges', data: { id: 'ge'+nextId, automataId: activeAutomata.id, source: 'gn'+nextId, target: node.id(), isStartEdge: true  } },
+				{ group: 'edges', data: { id: 'ge'+nextId, automataId: activeAutomata.id, source: 'gn'+nextId, target: node.id(), isGhost: true, isStartEdge: true  } },
 			]);
 			cy.getElementById('gn'+nextId).addClass('ghostNode');
 			//Add ghost node as Attribute
@@ -488,24 +518,28 @@
 		}
 	}
 	
-	function setTransitionSymbols(edge, symbolArray){
+	function setTransitionSymbols(edge, symbolSet){
 		//Save a copy of transition symbols in the node
-		edge.data('transitionSymbols', $.extend([],symbolArray));
-		edge.data('symbolsText', symbolArray.toString());
+		edge.data('transitionSymbols', $.extend(Object.create(null),symbolSet));
+		edge.data('symbolsText', Object.keys(symbolSet).toString());
 	}
 	
 	function addTransitionSymbol(edge, symbol){
-		edge.data('transitionSymbols').push(symbol);
-		edge.data('symbolsText', edge.data('transitionSymbols').toString());
+		edge.data('transitionSymbols')[symbol] = true;
+		edge.data('symbolsText', Object.keys(edge.data('transitionSymbols')).toString());
+	}
+	
+	function removeTransitionSymbol(edge, symbol){
+		delete edge.data('transitionSymbols')[symbol];
+		edge.data('symbolsText', Object.keys(edge.data('transitionSymbols')).toString());
 	}
 	
 	//Remove a transition symbol from all edges and update their text
 	function removeFromEdges(transitionSymbol){
-		allEdges = cy.edges('[automataId = ' + activeAutomata.id + ']');
-		allEdges.each(function(i,ele){
-			if($.inArray(transitionSymbol, ele.data('transitionSymbols')) > -1){
-				ele.data('transitionSymbols').splice( $.inArray(transitionSymbol, ele.data('transitionSymbols')), 1 );
-				ele.data('symbolsText', ele.data('transitionSymbols').toString());
+		allEdges = cy.edges('[automataId = ' + activeAutomata.id + '][!isGhost]');
+		allEdges.each(function(i,edge){
+			if(transitionSymbol in edge.data('transitionSymbols')){
+				removeTransitonSymbol(edge, transitionSymbol);
 			}
 		});
 	}
@@ -544,24 +578,33 @@
 		setLoop(editNode, $(this).prop('checked'));
 	});
 	
-	$('#inputAlphabet').on('itemAdded itemRemoved', function(event){
+	$('#inputAlphabet').on('itemAdded', function(event){
 		if(!preventEvent){
-			activeAutomata.inputAlphabet = $.extend([],$('#inputAlphabet').tagsinput('items'));
+			activeAutomata.inputAlphabet[event.item] = true;
 		}
 	});
 	
 	$('#inputAlphabet').on('itemRemoved', function(event){
-		removeFromEdges(event.item);
+		if(!preventEvent){
+			delete activeAutomata.inputAlphabet[event.item];
+			removeFromEdges(event.item);
+		}
 	});
 	
-	$(document).on('itemAdded itemRemoved', '#inputTransitionSymbols', function(){
+	$('#inputTransitionSymbols').on('itemAdded', function(event){
 		if(editEdge != null){
-			setTransitionSymbols(editEdge, $(this).tagsinput('items'));
+			addTransitionSymbol(editEdge, event.item);
+		}
+	});
+	
+	$('#inputTransitionSymbols').on('itemRemoved', function(event){
+		if(editEdge != null){
+			removeTransitionSymbol(editEdge, event.item);
 		}
 	});
 	
 	$('#inputTransitionSymbols').on('beforeItemAdd', function(event){
-		if($.inArray(event.item, activeAutomata.inputAlphabet) == -1){
+		if(!(event.item in activeAutomata.inputAlphabet)){
 			edgeSettingsError.stop(true).hide().show().delay(2000).fadeOut();
 			event.cancel = true;
 		}
@@ -655,11 +698,7 @@
 	});
 	
 	$('#btnSave').on('click', function(){
-		var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(cy.elements().json()));
-		var anchorElement = $('#saveAnchor');
-		anchorElement.attr("href", dataStr);
-		anchorElement.attr("download", "graph.json");
-		anchorElement.trigger('click');
+		download(JSON.stringify(cy.json()), 'graph.json', 'text/json');
 	});
 	
 	$('#btnAnalyzeGraph').on('click', function(){
@@ -667,7 +706,6 @@
 		$('#modalAnalyzedGraph').modal('show');
 	});
 	
-	//Debug Button for console logs
 	$('#btnToDFA').on('click', function(){
 		toDFA();
 	});
@@ -698,14 +736,14 @@
 		//Get only outgoing transitions with matching symbol
 		else{
 			transitions = nodes.outgoers('edge').filter( function(i, transition){
-				if($.inArray(symbol, transition.data('transitionSymbols')) > -1){
+				if(symbol in transition.data('transitionSymbols')){
 					return true;
 				}
 				return false;
 			});
 			nodes.each(function(i, node){
 				var transitionLoops = node.edgesTo(node).filter( function(i, transition){
-					if($.inArray(symbol, transition.data('transitionSymbols')) > -1){
+					if(symbol in transition.data('transitionSymbols')){
 						return true;
 					}
 					return false;
@@ -719,14 +757,14 @@
 	function getTransitionStates(nodes, symbol){
 		if(nodes === undefined)
 			return
-		var transitionNodes = cy.collection();
+		var transitionStates = cy.collection();
 		if(symbol === undefined){
 			//Get all reachable nodes
-			transitionNodes = nodes.outgoers('node')
+			transitionStates = nodes.outgoers('node')
 			//Add loops
 			nodes.each(function(i, node){
 				if(node.edgesTo(node).length > 1){
-					transitionNodes = transitionNodes.add(node);
+					transitionStates = transitionStates.add(node);
 				}
 			});
 		}
@@ -734,10 +772,10 @@
 		else{
 			var transitionEdges = getTransitions(nodes, symbol);
 			transitionEdges.each(function(i, edge){
-				transitionNodes = transitionNodes.add(edge.target());
+				transitionStates = transitionStates.add(edge.target());
 			});
 		}
-		return transitionNodes;
+		return transitionStates;
 	}
 	
 	//Implementation of a basic object set add
@@ -753,6 +791,17 @@
 			}
 			return true;
 		}
+		else if( element === Object(element) ){
+			for(var e in element){
+				if(e in set){
+					return false;
+				}
+			}
+			for(var e in element){
+				set[e] = true;
+			}
+			return true;
+		}
 		else{
 			if(element in set){
 				return false;
@@ -760,17 +809,6 @@
 			set[element] = true;
 			return true;
 		}
-	}
-	
-	//Adds a cy collection to the array if it's not already contained
-	function collectionSetAdd(array, collectionElement){
-		for(var i = 0; i < array.length; i++){
-			if(array[i].same(collectionElement)){
-				return false;
-			}
-		}
-		array.push(collectionElement);
-		return true;
 	}
 	
 	function containsEndState(collection){
@@ -864,23 +902,9 @@
 		inputWord = word;
 		path.push(currentNodes);
 		for (var i = 0, len = word.length; i < len; i++) {
-			var nextNodes = cy.collection();
-			var nextEdges = cy.collection();
-			var outEdges = currentNodes.outgoers('edge');
-			
-			//Get loops
-			currentNodes.each(function(j, ele){
-				outEdges = outEdges.add(ele.edgesTo(ele));
-			});
-			
-			outEdges.each(function(j, ele){
-				$.each(ele.data('transitionSymbols'), function(k, symbol){
-					if(symbol == word[i]){
-						nextEdges = nextEdges.add(ele);
-						nextNodes = nextNodes.add(ele.target());
-					}
-				});
-			});
+			var nextEdges = getTransitions(currentNodes, word[i]);
+			var nextNodes = nextEdges.targets();
+
 			if(!nextNodes.empty()){
 				path.push(nextEdges);
 				path.push(nextNodes);
@@ -949,8 +973,8 @@
 						return false;
 					};
 				}
-				for(var j = 0; j < activeAutomata.inputAlphabet.length; j++){
-					if(!((activeAutomata.inputAlphabet[j]) in alphabetSet)){
+				for(var symbol in activeAutomata.inputAlphabet){
+					if(!symbol in alphabetSet){
 						//There is a transition missing at newState[i]
 						return false;
 					}
@@ -970,12 +994,13 @@
 			return; //TODO: Error no start states
 		var automataAlphabet = activeAutomata.inputAlphabet;
 		var workingStates = [startStates];
-		var allStates = [startStates];
+		var allStates = Object.create(null);
 		
 		createNewAutomata(automataAlphabet);
 		var prefix = 'dfa' + activeAutomata.id;
 		var startStatesId = prefix + getCombinedId(startStates);
 		var startStatesName = getCombinedName(startStates);
+		setAdd(allStates, startStatesId);
 		addState(startStatesId, startStatesName);
 		var startState = cy.getElementById(startStatesId)
 		setStartState(startState,true);
@@ -986,11 +1011,11 @@
 			var newStates = [];
 			$.each(workingStates, function(i, currentState){
 				var currentStateId = prefix + getCombinedId(currentState);
-				$.each(automataAlphabet, function(j, symbol){
+				for(var symbol in automataAlphabet){
 					var reachedState = getTransitionStates(currentState, symbol);
 					var reachedStateId = prefix + getCombinedId(reachedState);
 					var reachedStateName = getCombinedName(reachedState)
-					if(collectionSetAdd(allStates, reachedState)){
+					if(setAdd(allStates, reachedStateId)){
 						if(reachedStateId != prefix){
 							addState(reachedStateId, reachedStateName);
 						}
@@ -1003,7 +1028,7 @@
 						newStates.push(reachedState);
 					}
 					addEdge(currentStateId, reachedStateId, symbol);
-				});
+				}
 			});
 			workingStates = $.extend([], newStates);
 		}
@@ -1032,8 +1057,8 @@
 						return false;
 					};
 				}
-				for(var j = 0; j < activeAutomata.inputAlphabet.length; j++){
-					if(!((activeAutomata.inputAlphabet[j]) in alphabetSet)){
+				for(var symbol in activeAutomata.inputAlphabet){
+					if(!symbol in alphabetSet){
 						//There is a transition missing at newState[i]
 						return false;
 					}
@@ -1044,7 +1069,7 @@
 			newStates = transitionStates.difference(reachableStates);
 			reachableStates = reachableStates.union(newStates);
 		}
-		//Sort states by name
+		//Sort states by id
 		reachableStates = reachableStates.sort(function (a, b){
 			return a.id() > b.id();
 		});
@@ -1079,8 +1104,7 @@
 					if(!markTable[row][column]){
 						var state1 = cy.getElementById(row);
 						var state2 = cy.getElementById(column);
-						for(var i = 0; i < activeAutomata.inputAlphabet.length; i++){
-							var symbol = activeAutomata.inputAlphabet[i];
+						for(var symbol in activeAutomata.inputAlphabet){
 							var transitionState1 = getTransitionStates(state1, symbol).id();
 							var transitionState2 = getTransitionStates(state2, symbol).id();
 							if(transitionState1 != transitionState2){
@@ -1174,8 +1198,8 @@
 			for(var i = 0; i < transitions.length; i++){
 				var transition = transitions[i];
 				var targetId = getTargetId(transition.target().id(), singleStates, equivalentStates, equivalentStatesIds);
-				for(var j = 0; j < transition.data('transitionSymbols').length; j++){
-					addEdge(prefix + state, prefix + targetId, transition.data('transitionSymbols')[j]);
+				for(var symbol in transition.data('transitionSymbols')){
+					addEdge(prefix + state, prefix + targetId, symbol);
 				}
 			}
 		}
@@ -1186,8 +1210,8 @@
 				for(var j = 0; j < transitions.length; j++){
 					var transition = transitions[j];
 					var targetId = getTargetId(transition.target().id(), singleStates, equivalentStates, equivalentStatesIds);
-					for(var k = 0; k < transition.data('transitionSymbols').length; k++){
-						addEdge(prefix + equivalentStatesIds[i], prefix + targetId, transition.data('transitionSymbols')[k]);
+					for(var symbol in transition.data('transitionSymbols')){
+						addEdge(prefix + equivalentStatesIds[i], prefix + targetId, symbol);
 					}
 				}
 				break;
