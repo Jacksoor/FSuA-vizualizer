@@ -672,9 +672,13 @@
 		toDFA();
 	});
 	
+	$('#btnMinimizeDFA').on('click', function(){
+		minimizeDFA();
+	});
+	
 	$('#btnTest').on('click', function(){
-		console.log(isDFA());
-	})
+		//Test something
+	});
 	
 	/* A L G O R I T H M  F U N C T I O N S */
 	
@@ -803,6 +807,18 @@
 		return combinedName;
 	}
 	
+	
+	function getTargetId(target, states, combinedStates, combinedStatesIds){
+		if(target in states){
+			return target;
+		}
+		for(var i = 0; i < combinedStates.length; i++){
+			if(target in combinedStates[i]){
+				return combinedStatesIds[i];
+			}
+		}
+	}
+	
 	/* A L G O R I T H M S */
 	
 	function analyzeGraph(){
@@ -830,7 +846,6 @@
 					if(symbolTransitionCount > 1){
 						isDFA = false;
 					}
-					console.log(symbolTransitionCount);
 				});
 				transitionCount += symbolTransitionCount;
 			});
@@ -913,13 +928,16 @@
 		});
 	}
 	
+	/*  Tests if the activeAutomata is an DFA and saves a reachable states collection
+		in the first parameter if given
+	*/
 	function isDFA(){
 		var startStates = cy.nodes('[?isStartState][automataId=' + activeAutomata.id + ']');
 		if(startStates.empty())
 			return true; //Warning: No Start States, The automata accepts nothing
 		if(startStates.size() > 1)
 			return false; //A DFA can only have one starting state
-		var allStates = startStates.clone();
+		var reachableStates = startStates;
 		var newStates = cy.nodes('[?isStartState][automataId=' + activeAutomata.id + ']');
 		while(newStates.nonempty()){
 			for(var i = 0; i < newStates.length; i++){
@@ -940,8 +958,8 @@
 			}
 			var transitionStates = getTransitionStates(newStates);
 			//Remove states already reached from transitonStates
-			newStates = transitionStates.difference(allStates);
-			allStates = allStates.union(newStates);
+			newStates = transitionStates.difference(reachableStates);
+			reachableStates = reachableStates.union(newStates);
 		}
 		return true;
 	}
@@ -994,4 +1012,186 @@
 		startState.unlock();
 	}
 	
+	function minimizeDFA(){
+		//Test if DFA
+		var startStates = cy.nodes('[?isStartState][automataId=' + activeAutomata.id + ']');
+		if(startStates.empty())
+			return; //Delete all other states
+		if(startStates.size() > 1)
+			return false; //Automata is not a dfa
+		var startStateId = startStates.id();
+		var reachableStates = startStates;
+		var newStates = cy.nodes('[?isStartState][automataId=' + activeAutomata.id + ']');
+		while(newStates.nonempty()){
+			for(var i = 0; i < newStates.length; i++){
+				var transitions = getTransitions(newStates[i]);
+				var alphabetSet = Object.create(null);
+				for(var j = 0; j < transitions.length; j++){
+					if(!setAdd(alphabetSet, transitions[j].data('transitionSymbols'))){
+						//There are multiple transitions for one symbol
+						return false;
+					};
+				}
+				for(var j = 0; j < activeAutomata.inputAlphabet.length; j++){
+					if(!((activeAutomata.inputAlphabet[j]) in alphabetSet)){
+						//There is a transition missing at newState[i]
+						return false;
+					}
+				}
+			}
+			var transitionStates = getTransitionStates(newStates);
+			//Remove states already reached from transitonStates
+			newStates = transitionStates.difference(reachableStates);
+			reachableStates = reachableStates.union(newStates);
+		}
+		//Sort states by name
+		reachableStates = reachableStates.sort(function (a, b){
+			return a.id() > b.id();
+		});
+		//Setup mark table
+		var markTable = Object.create(null);
+		for(var row = 1; row < reachableStates.length; row++){
+			markTable[reachableStates[row].id()] = Object.create(null);
+			for(var cell = 0; cell < row; cell++){
+				markTable[reachableStates[row].id()][reachableStates[cell].id()] = false;
+ 			}
+		}
+		
+		var endStates = reachableStates.filter('[?isEndState]');
+		var endStatesIds = Object.create(null);
+		for(var i = 0; i < endStates.length; i++){
+			endStatesIds[endStates[i].id()] = true;
+			for(var j = 0; j < reachableStates.length; j++){
+				if(!reachableStates[j].data('isEndState')){
+					if(endStates[i].id() == reachableStates[0].id())
+						markTable[reachableStates[j].id()][endStates[i].id()] = true;
+					else
+						markTable[endStates[i].id()][reachableStates[j].id()] = true;
+				}
+			}
+		}
+		
+		var marked;
+		do{
+			marked = false;
+			for (var row in markTable) {
+				for(var column in markTable[row]){
+					if(!markTable[row][column]){
+						var state1 = cy.getElementById(row);
+						var state2 = cy.getElementById(column);
+						for(var i = 0; i < activeAutomata.inputAlphabet.length; i++){
+							var symbol = activeAutomata.inputAlphabet[i];
+							var transitionState1 = getTransitionStates(state1, symbol).id();
+							var transitionState2 = getTransitionStates(state2, symbol).id();
+							if(transitionState1 != transitionState2){
+								//If transition nodes are out of index table index swap them
+								if(transitionState1 == reachableStates[0].id() || transitionState2 == reachableStates[reachableStates.length-1].id()){
+									var temp = transitionState1;
+									transitionState1 = transitionState2;
+									transitionState2 = temp;
+								}
+								if(markTable[transitionState1][transitionState2]){
+									markTable[state1.id()][state2.id()] = true;
+									marked = true;
+									break;
+								}
+							}
+						}
+					}
+				}
+			}
+		}while( marked );
+		
+		var singleStates = Object.create(null);
+		var equivalentStates = [];
+		
+		for(var i = 0; i < reachableStates.length; i++){
+			singleStates[reachableStates[i].id()] = reachableStates[i].data('name');
+		}
+		
+		for(var row in markTable){
+			for(var column in markTable[row]){
+				if(!markTable[row][column]){
+					if(row in singleStates){
+						var equivalentState = Object.create(null);
+						equivalentState[row] = singleStates[row];
+						equivalentState[column] = singleStates[column];
+						equivalentStates.push(equivalentState);
+						delete singleStates[row];
+						delete singleStates[column];
+					}
+					else{
+						for(var i = 0; i < equivalentStates.lenght; i++){
+							if(row in equivalentStates[i] || column in equivalentStates){
+								equivalentStates[i][row] = true;
+								equivalentStates[i][column] = true;
+								break;
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		createNewAutomata(activeAutomata.inputAlphabet);
+		var prefix = 'min' + activeAutomata.id;
+		
+		var equivalentStatesIds = [];
+		for(var i = 0; i < equivalentStates.length; i++){
+			var id = '';
+			var names = [];
+			var isStartState = false;
+			var isEndState = false;
+			for(var state in equivalentStates[i]){
+				if(state == startStateId)
+					isStartState = true;
+				if(state in endStatesIds)
+					isEndState = true;
+				id += state;
+				names.push(equivalentStates[i][state]);
+			}
+			names.sort();
+			equivalentStatesIds.push(id);
+			addState(prefix + id, names.toString());
+			if(isStartState)
+				setStartState(cy.getElementById(prefix + id), true);
+			if(isEndState)
+				setEndState(cy.getElementById(prefix + id), true);
+			
+		}
+		
+		for(var state in singleStates){
+			addState(prefix + state, singleStates[state]);
+			if(state == startStateId)
+				setStartState(cy.getElementById(prefix + state), true);
+			if(state in endStatesIds)
+				setEndState(cy.getElementById(prefix + state), true);
+		}
+		
+		//Add edges
+		for(var state in singleStates){
+			var transitions = getTransitions(cy.getElementById(state));
+			for(var i = 0; i < transitions.length; i++){
+				var transition = transitions[i];
+				var targetId = getTargetId(transition.target().id(), singleStates, equivalentStates, equivalentStatesIds);
+				for(var j = 0; j < transition.data('transitionSymbols').length; j++){
+					addEdge(prefix + state, prefix + targetId, transition.data('transitionSymbols')[j]);
+				}
+			}
+		}
+		
+		for(var i = 0; i < equivalentStates.length; i++){
+			for(var state in equivalentStates[i]){
+				var transitions = getTransitions(cy.getElementById(state));
+				for(var j = 0; j < transitions.length; j++){
+					var transition = transitions[j];
+					var targetId = getTargetId(transition.target().id(), singleStates, equivalentStates, equivalentStatesIds);
+					for(var k = 0; k < transition.data('transitionSymbols').length; k++){
+						addEdge(prefix + equivalentStatesIds[i], prefix + targetId, transition.data('transitionSymbols')[k]);
+					}
+				}
+				break;
+			}
+		}
+	}
 });
