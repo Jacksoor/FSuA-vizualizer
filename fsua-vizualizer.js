@@ -60,13 +60,6 @@
 			'target-arrow-color': '#D8D8D8',
 			'z-index': '0',
 		})
-		.selector(':selected')
-		.css({
-			'background-color': 'black',
-			'line-color': 'black',
-			'target-arrow-color': 'black',
-			'source-arrow-color': 'black'
-		})
 		.selector('.ghostNode')
 		.css({
 			'padding-left': '0px',
@@ -85,6 +78,13 @@
 		.selector('.link')
 		.css({
 			'background-color': 'red'
+		})
+		.selector('.previewEdge')
+		.css({
+			'transition-duration': '0s',
+			'line-color': 'red',
+			'target-arrow-color': 'red',
+			'source-arrow-color': 'red'
 		})
 		.selector('.highlighted')
 		.css({
@@ -119,7 +119,10 @@
 	
 	var preventEvent = false;
 	var linkSourceNode = null;
+	var lastTargetNode = null;
 	var linkingMode = false;
+	var mouseLeftNode = false;
+	var previewEdge = null;
 	
 	//Get Settings
 	var apiTipEdgeSettings = null;
@@ -175,16 +178,20 @@
 	
 	
 	function startLinkingMode(event){
-		linkSourceNode = event.cyTarget;
-		linkSourceNode.addClass('link');
 		cy.add([
 			{ group: "nodes", data: { id: "linker", isGhost: true}, classes: 'ghostNode', renderedPosition: event.cyRenderedPosition },
-			{ group: "edges", data: { id: "newLink", source: linkSourceNode.id(), target: 'linker' , isGhost: true} },
+			{ group: "edges", data: { id: "newLink", isGhost: true, source: linkSourceNode.id(), target: 'linker'}, classes: 'previewEdge' },
 		]);
-		linkingMode = true;
 	}
 	
 	function endLinkingMode(){
+		if(previewEdge != null){
+			if(previewEdge.id() == 'previewEdge')
+				previewEdge.remove();
+			else
+				previewEdge.removeClass('previewEdge');
+		}
+		previewEdge = null;
 		linkSourceNode.removeClass('link');
 		linkSourceNode = null;
 		cy.getElementById('linker').remove();
@@ -196,10 +203,13 @@
 			//Ghost nodes cannot be used for links
 			if(event.cyTarget.data('isGhost'))
 				return;
-			startLinkingMode(event);
+			linkSourceNode = event.cyTarget;
+			linkSourceNode.addClass('link');
+			linkingMode = true;
+			mouseLeftNode = false;
 		}
 		//Unselect selected node
-		else if(event.cyTarget == linkSourceNode){
+		else if(event.cyTarget == linkSourceNode && !mouseLeftNode){
 			endLinkingMode();
 		}
 		//Link the selected node to the event node
@@ -209,8 +219,30 @@
 				endLinkingMode();
 				return;
 			}
-			addEdge(linkSourceNode.id(), event.cyTarget.id());
+			if(previewEdge != null && previewEdge.id() == 'previewEdge'){
+				previewEdge.remove();
+				addEdge(linkSourceNode.id(), event.cyTarget.id());
+			}
 			endLinkingMode();
+		}
+	}
+	
+	function showNewEdge(sourceNode, targetNode){
+		var exsistingEdge = sourceNode.edgesTo(targetNode);
+		if(exsistingEdge.size() == 0){
+			if(previewEdge != null && previewEdge.id() == 'previewEdge')
+				previewEdge.remove();
+			cy.add([
+				{ group: "edges", data: { id: 'previewEdge', isGhost: true, source: sourceNode.id(), target: targetNode.id() }, classes: 'previewEdge'}
+			]);
+			previewEdge = cy.getElementById('previewEdge');
+			if(sourceNode == targetNode){
+				previewEdge.addClass('loop');
+			}
+		}
+		else{
+			previewEdge = exsistingEdge;
+			previewEdge.addClass('previewEdge');
 		}
 	}
 	
@@ -398,6 +430,8 @@
 			nextId++;
 		}
 		else{
+			if(symbol === undefined)
+				return;
 			addTransitionSymbol(edge[0], symbol);
 		}
 	}
@@ -418,52 +452,73 @@
 		cy.remove(edge);
 	}
 	
-	function applyCoseLayout(){
+	function applyBreadthfirstLayout(startNode){
+		var automataEles = cy.elements('[automataId = ' + activeAutomata.id +']');
+		console.log(automataEles);
 		var options = {
-		  name: 'cose',
-
-		  // Called on `layoutready`
-		  ready               : function() {},
-		  // Called on `layoutstop`
-		  stop                : function() {},
-		  // Whether to animate while running the layout
-		  animate             : true,
-		  // The layout animates only after this many milliseconds
-		  // (prevents flashing on fast runs)
-		  animationThreshold  : 250,
-		  // Number of iterations between consecutive screen positions update
-		  // (0 -> only updated on the end)
-		  refresh             : 20,
-		  // Whether to fit the network view after when done
-		  fit                 : false,
-		  // Padding on fit
-		  padding             : 30,
-		  // Constrain layout bounds; { x1, y1, x2, y2 } or { x1, y1, w, h }
-		  boundingBox         : undefined,
-		  // Extra spacing between components in non-compound graphs
-		  componentSpacing    : 100,
-		  // Node repulsion (non overlapping) multiplier
-		  nodeRepulsion       : function( node ){ return 400000; },
-		  // Node repulsion (overlapping) multiplier
-		  nodeOverlap         : 10,
-		  // Ideal edge (non nested) length
-		  idealEdgeLength     : function( edge ){ return 10; },
-		  // Divisor to compute edge forces
-		  edgeElasticity      : function( edge ){ return 100; },
-		  // Nesting factor (multiplier) to compute ideal edge length for nested edges
-		  nestingFactor       : 5,
-		  // Gravity force (constant)
-		  gravity             : 80,
-		  // Maximum number of iterations to perform
-		  numIter             : 1000,
-		  // Initial temperature (maximum node displacement)
-		  initialTemp         : 200,
-		  // Cooling factor (how the temperature is reduced between consecutive iterations
-		  coolingFactor       : 0.95,
-		  // Lower temperature threshold (below this point the layout will end)
-		  minTemp             : 1.0,
-		  // Whether to use threading to speed up the layout
-		  useMultitasking     : true
+			name: 'breadthfirst',
+			eles: automataEles,
+			fit: true, // whether to fit the viewport to the graph
+			directed: false, // whether the tree is directed downwards (or edges can point in any direction if false)
+			padding: 30, // padding on fit
+			circle: false, // put depths in concentric circles if true, put depths top down if false
+			spacingFactor: 1.25, // positive spacing factor, larger => more space between nodes (N.B. n/a if causes overlap)
+			boundingBox: undefined, // constrain layout bounds; { x1, y1, x2, y2 } or { x1, y1, w, h }
+			avoidOverlap: true, // prevents node overlap, may overflow boundingBox if not enough space
+			roots: startNode, // the roots of the trees
+			maximalAdjustments: 0, // how many times to try to position the nodes in a maximal way (i.e. no backtracking)
+			animate: false, // whether to transition the node positions
+			animationDuration: 500, // duration of animation in ms if enabled
+			animationEasing: undefined, // easing of animation if enabled
+			ready: undefined, // callback on layoutready
+			stop: undefined // callback on layoutstop
+		};
+		cy.layout( options );
+	}
+	
+	function applyCoseLayout(){
+		var automataEles = cy.elements('[automataId = ' + activeAutomata.id +']');
+		var options = {
+			name: 'cose',
+			eles: automataEles,
+			ready: function() {},  // Called on `layoutready`
+			stop: function() {},  // Called on `layoutstop`
+			animate: true, // Whether to animate while running the layout
+			// The layout animates only after this many milliseconds
+			// (prevents flashing on fast runs)
+			animationThreshold  : 250,
+			// Number of iterations between consecutive screen positions update
+			// (0 -> only updated on the end)
+			refresh             : 20,
+			fit: false, // Whether to fit the network view after when done
+			// Padding on fit
+			padding             : 30,
+			// Constrain layout bounds; { x1, y1, x2, y2 } or { x1, y1, w, h }
+			boundingBox         : undefined,
+			// Extra spacing between components in non-compound graphs
+			componentSpacing    : 100,
+			// Node repulsion (non overlapping) multiplier
+			nodeRepulsion       : function( node ){ return 400000; },
+			// Node repulsion (overlapping) multiplier
+			nodeOverlap         : 10,
+			// Ideal edge (non nested) length
+			idealEdgeLength     : function( edge ){ return 10; },
+			// Divisor to compute edge forces
+			edgeElasticity      : function( edge ){ return 100; },
+			// Nesting factor (multiplier) to compute ideal edge length for nested edges
+			nestingFactor       : 5,
+			// Gravity force (constant)
+			gravity             : 80,
+			// Maximum number of iterations to perform
+			numIter             : 1000,
+			// Initial temperature (maximum node displacement)
+			initialTemp         : 200,
+			// Cooling factor (how the temperature is reduced between consecutive iterations
+			coolingFactor       : 0.95,
+			// Lower temperature threshold (below this point the layout will end)
+			minTemp             : 1.0,
+			// Whether to use threading to speed up the layout
+			useMultitasking     : true
 		};
 
 		cy.layout( options );
@@ -539,7 +594,7 @@
 		allEdges = cy.edges('[automataId = ' + activeAutomata.id + '][!isGhost]');
 		allEdges.each(function(i,edge){
 			if(transitionSymbol in edge.data('transitionSymbols')){
-				removeTransitonSymbol(edge, transitionSymbol);
+				removeTransitionSymbol(edge, transitionSymbol);
 			}
 		});
 	}
@@ -616,7 +671,7 @@
 	var clicks = 0;
 	cy.on('tap', 'node', function(event) {
 		var target = event.cyTarget;
-		if(target.id() != "linker" && target.data('automataId') != activeAutomata.id)
+		if(target.id() != 'linker' && target.data('automataId') != activeAutomata.id)
 			return;
 		clicks++;
 		if (clicks == 1) {
@@ -674,8 +729,53 @@
 	});
 	
 	cy.on('tapdrag', function(event){
+		var target = event.cyTarget;
 		if(linkingMode){
-			cy.$('#linker').renderedPosition(event.cyRenderedPosition);
+			//Target is a real node
+			if(target !== cy && target.isNode() && target.id() != 'linker'){
+				if(mouseLeftNode){
+					if(lastTargetNode == null){
+						lastTargetNode = target
+						cy.getElementById('linker').addClass('hidden');
+						showNewEdge(linkSourceNode, target);
+					}
+					else if(lastTargetNode != target){
+						if(previewEdge != null){
+							if(previewEdge.id() == 'previewEdge')
+								previewEdge.remove();
+							else
+								previewEdge.removeClass('previewEdge');
+						}
+						lastTargetNode = target;
+						cy.getElementById('linker').addClass('hidden');
+						showNewEdge(linkSourceNode, target);
+					}
+				}
+				//Start linking mode if mouse was moved to another node in click delay
+				if(!mouseLeftNode && target != linkSourceNode){
+					mouseLeftNode = true;
+					startLinkingMode(event);
+				}
+			}
+			else{
+				if(!mouseLeftNode){
+					mouseLeftNode = true;
+					startLinkingMode(event);
+				}
+				if(previewEdge != null){
+					if(previewEdge.id() == 'previewEdge'){
+						previewEdge.remove();
+					}
+					else{
+						previewEdge.removeClass('previewEdge');
+					}
+					cy.getElementById('linker').removeClass('hidden');
+					previewEdge = null;
+				}
+				lastTargetNode = null;
+				cy.$('#linker').renderedPosition(event.cyRenderedPosition);
+			}
+			
 		}
 	});
 	
@@ -715,7 +815,9 @@
 	});
 	
 	$('#btnTest').on('click', function(){
-		//Test something
+		console.log({});
+		console.log($.extend({},{a: 'x'}));
+		console.log($.extend(Object.create(null),{a: 'x'}));
 	});
 	
 	/* A L G O R I T H M  F U N C T I O N S */
@@ -1032,9 +1134,7 @@
 			});
 			workingStates = $.extend([], newStates);
 		}
-		startState.lock();
 		applyCoseLayout();
-		startState.unlock();
 	}
 	
 	function minimizeDFA(){
@@ -1069,10 +1169,16 @@
 			newStates = transitionStates.difference(reachableStates);
 			reachableStates = reachableStates.union(newStates);
 		}
+		
+		var endStates = reachableStates.filter('[?isEndState]');
+		if(endStates.size() == 0)
+			return;
+		
 		//Sort states by id
 		reachableStates = reachableStates.sort(function (a, b){
 			return a.id() > b.id();
 		});
+		
 		//Setup mark table
 		var markTable = Object.create(null);
 		for(var row = 1; row < reachableStates.length; row++){
@@ -1082,7 +1188,6 @@
  			}
 		}
 		
-		var endStates = reachableStates.filter('[?isEndState]');
 		var endStatesIds = Object.create(null);
 		for(var i = 0; i < endStates.length; i++){
 			endStatesIds[endStates[i].id()] = true;
@@ -1136,7 +1241,7 @@
 		for(var row in markTable){
 			for(var column in markTable[row]){
 				if(!markTable[row][column]){
-					if(row in singleStates){
+					if(row in singleStates && column in singleStates){
 						var equivalentState = Object.create(null);
 						equivalentState[row] = singleStates[row];
 						equivalentState[column] = singleStates[column];
@@ -1145,10 +1250,15 @@
 						delete singleStates[column];
 					}
 					else{
-						for(var i = 0; i < equivalentStates.lenght; i++){
-							if(row in equivalentStates[i] || column in equivalentStates){
-								equivalentStates[i][row] = true;
-								equivalentStates[i][column] = true;
+						for(var i = 0; i < equivalentStates.length; i++){
+							if(row in equivalentStates[i] && column in singleStates){
+								equivalentStates[i][column] = singleStates[column];
+								delete singleStates[column];
+								break;
+							}
+							if(column in equivalentStates[i] && row in singleStates){
+								equivalentStates[i][row] = singleStates[row];
+								delete singleStates[row];
 								break;
 							}
 						}
