@@ -2,84 +2,13 @@
 	<head>
 		<title>FSuA-Vizualizer</title>
 		<meta charset= utf-8 />
-		<style>
-			body {
-			width: 100%;
-			height: 100%;
-			font: 14px helvetica neue, helvetica, arial, sans-serif;
-			overflow: hidden;
-			}
-			
-			#cy {
-			position: absolute;
-			left: 0;
-			top: 0;
-			width: 100%;
-			height: 100%;
-			}
-			
-			.node-settings{
-			max-width: 200px;
-			display: none;
-			}
-			
-			.edge-settings{
-			max-width: 200px;
-			display:none;
-			}
-			
-			.config {
-			position: absolute;
-			right: 0;
-			top: 0;
-			bottom: 0;
-			width: 18em;
-			background: rgba(0, 0, 0, 0.75);
-			box-sizing: border-box;
-			padding: 1em;
-			color: #fff;
-			transition-property: opacity;
-			transition-duration: 250ms;
-			transition-timing-function: ease-out;
-			overflow: auto;
-			z-index: 1;
-			}
-			
-			.config > h2{
-			margin-top: 3px;
-			}
-			
-			.config-toggle {
-			position: absolute;
-			right: 5;
-			top: 5;
-			padding: 1em;
-			margin: 0.2em;
-			cursor: pointer;
-			color: #888;
-			z-index: 9999999;
-			}
-			
-			.config-closed .config {
-			opacity: 0;
-			pointer-events: none;
-			}
-			
-			.config-closed #cy {
-			right: 0;
-			}
-			
-			.bootstrap-tagsinput{
-			width: 100%;
-			}
-			
-			.error-message{
-			display: none;
-			}
-		</style>
+		
+		<link href="./style.css" rel="stylesheet" type="text/css">
+		
 		<!-- Main Scripts -->
 		<script src="./jquery.min.js"></script>
 		<script src="./cytoscape.min.js"></script>
+		<script src="./cytoscape.automata.js"></script>
 		
 		<!-- Bootstrap -->
 		<link href="/~jacksoor/css/bootstrap.min.css" rel="stylesheet" type="text/css">
@@ -88,6 +17,10 @@
 		<!-- Bootstrap Tags -->
 		<link href="./bootstrap-tagsinput.css" rel="stylesheet" type="text/css">
 		<script src="./bootstrap-tagsinput.js"></script>
+		
+		<!-- Bootstrap Slider -->
+		<link href="./bootstrap-slider.min.css" rel="stylesheet" type="text/css">
+		<script src="./bootstrap-slider.min.js"></script>
 		
 		<!-- Tooltips -->
 		<script src="http://cdnjs.cloudflare.com/ajax/libs/qtip2/2.2.0/jquery.qtip.min.js"></script>
@@ -107,45 +40,85 @@
 		
 		<div id="config" class="config">
 			<h2>Optionen</h2>
-			<form id='graphSettings'>
-				<div class="form-group">
-					<label for="btn-group">Aktiver Automat:</label><br>
-					<div class="btn-group">
-					<button type="button" class="btn btn-info btn-lg dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-						<span id="textActiveAutomata">Automat 1</span> <span class="caret"></span>
-					</button>
-					<ul class="dropdown-menu" id="listAvaiableAutomatas">
-						<li><a href="#" value="1">Automat 1</a></li>
-					</ul>
-					</div>
-					<button type="button" class="btn btn-success btn-lg" id="btnAddAutomata">
-						<span class="glyphicon glyphicon-plus" aria-hidden="true"></span>
-					</button>
-				</div>
-				<div class="form-group">
-					<label for="inputAlphabet">Eingabealphabet:</label>
-					<input type="text" id="inputAlphabet" data-role="tagsinput">
-					<script>
-						$('#inputAlphabet').tagsinput({
-							maxChars: 1,
-							confirmKeys: [13, 32, 44]
-						});
-					</script>
-				</div>
-				<div class="form-group">
-					<label for="inputWord">Eingabewort:</label>
-					<input type="text" class="form-control" id="inputWord" placeholder="bsp. abab">
-				</div>
-				<button class="btn btn-info btn-lg" id="btnTestWord">Eingabe testen</button>
-				<button class="btn btn-info btn-lg" id="btnToDFA">In DFA umwandeln</button>
-				<button class="btn btn-info btn-lg" id="btnMinimizeDFA">DFA minimieren</button>
-				<button type="button" class="btn btn-info btn-lg disabled" id="btnAnalyzeGraph">
-					Graph analysieren
+			<div class="form-group">
+				<label for="btn-group">Aktiver Automat:</label><br>
+				<div class="btn-group">
+				<button type="button" class="btn btn-info btn-lg dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+					<span id="textActiveAutomata">Automat 1</span> <span class="caret"></span>
 				</button>
+				<ul class="dropdown-menu" id="listAvaiableAutomatas">
+					<li><a href="#" value="1">Automat 1</a></li>
+				</ul>
+				</div>
+				<button type="button" class="btn btn-success btn-lg" id="btnAddAutomata">
+					<span class="glyphicon glyphicon-plus" aria-hidden="true"></span>
+				</button>
+			</div>
+			<div class="form-group">
+				<label for="inputAlphabet">Eingabealphabet:</label>
+				<input type="text" id="inputAlphabet" data-role="tagsinput" autocomplete="off">
+				<script>
+					$('#inputAlphabet').tagsinput({
+						maxChars: 1,
+						confirmKeys: [13, 32, 44]
+					});
+				</script>
+			</div>
+			<div class="form-group">
+				<label for="inputWord">Eingabewort:</label>
+				<input type="text" class="form-control" id="inputWord" placeholder="bsp. abab" autocomplete="off">
+			</div>
+			<button class="btn btn-info btn-lg" id="btnTestWord">Eingabe testen</button>
+			<button class="btn btn-info btn-lg" id="btnToDFA">In DFA umwandeln</button>
+			<button class="btn btn-info btn-lg" id="btnMinimizeDFA">DFA minimieren</button>
+			<button type="button" class="btn btn-info btn-lg disabled" id="btnAnalyzeGraph">
+				Graph analysieren
+			</button>
 				
-				<button class="btn btn-default btn-lg" id="btnTest">Test!</button>
-			</form>
+			<button class="btn btn-default btn-lg" id="btnTest">Test!</button>
 			<button class="btn btn-default btn-lg" id="btnSave">Graph speichern <span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span></button>
+		</div>
+		
+		<div class="helper-bar container-fluid" id="helperBar">
+			<button type="button" class="btn btn-danger btn-lg close-button" id="btnCloseHelper">
+				<span class="glyphicon glyphicon-remove" aria-hidden="true"></span>
+			</button>
+			<div class="row">
+				<div class="col-sm-2">
+					<div class="progress-text">
+						<span class="lead">Schritt: <span id="textCurrentProgress">X</span>/<span id="textMaxProgress">Y</span></span>
+					</div>
+				</div>
+				<div class="col-sm-8">
+					<div class="button-controls">
+						<button type="button" class="btn btn-default btn-lg" id="btnFirstStep">
+							<span class="glyphicon glyphicon-fast-backward" aria-hidden="true"></span>
+						</button>
+						<button type="button" class="btn btn-default btn-lg" id="btnPreviousStep">
+							<span class="glyphicon glyphicon-step-backward" aria-hidden="true"></span>
+						</button>
+						<button type="button" class="btn btn-default btn-lg" id="btnPlayPause">
+							<span class="glyphicon glyphicon-play" aria-hidden="true"></span>
+						</button>
+						<button type="button" class="btn btn-default btn-lg" id="btnNextStep">
+							<span class="glyphicon glyphicon-step-forward" aria-hidden="true"></span>
+						</button>
+						<button type="button" class="btn btn-default btn-lg" id="btnFinalStep">
+							<span class="glyphicon glyphicon-fast-forward" aria-hidden="true"></span>
+						</button>
+					</div>
+				</div>
+			</div>
+			<div class="row">
+				<div class="col-xs-12">
+					<input type="text" class="span2" value="" data-slider-min="0" data-slider-max="100" data-slider-step="1" data-slider-value="50" data-slider-id="sliderProgress" id="inputProgress" data-slider-tooltip="hide" data-slider-handle="round" />
+				</div>
+			</div>
+			<div class="row">
+				<div class="col-xs-12">
+					<div class="well well-sm" id="textTutorial"></div>
+				</div>
+			</div>
 		</div>
 		
 		<div class="node-settings" id="nodeSettings">
