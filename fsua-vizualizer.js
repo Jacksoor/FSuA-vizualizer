@@ -5,6 +5,9 @@
 		boxSelectionEnabled: false,
 		autounselectify: true,
 		
+		minZoom: 0.5,
+		maxZoom: 5,
+		
 		style: cytoscape.stylesheet()
 		.selector('node')
 		.css({
@@ -131,6 +134,12 @@
 	var editNode = null;
 	var editEdge = null;
 	
+	var helperBar = $('#helperBar');
+	var progressSlider = $('#inputProgress').slider();
+	var textCurrentProgress = $('#textCurrentProgress');
+	var textMaxProgress = $('#textMaxProgress');
+	var textTutorial = $('#textTutorial');
+	
 	/* F U N C T I O N S */
 	function createNewAutomata(alphabet){
 		automataCounter++;
@@ -163,16 +172,17 @@
 		for(var symbol in selectedAutomata.inputAlphabet){
 			$('#inputAlphabet').tagsinput('add' , symbol);
 		}
-		
-		var oldAutomataElements = cy.elements('[automataId = ' + activeAutomata.id +']');
-		oldAutomataElements.addClass('inactive');
-		oldAutomataElements.lock();
-		oldAutomataElements.ungrabify();
-		var newAutomataElements = cy.elements('[automataId = ' + automataId +']');
-		newAutomataElements.unlock();
-		newAutomataElements.grabify();
-		newAutomataElements.removeClass('inactive');
-		activeAutomata = selectedAutomata;
+		cy.batch(function(){
+			var oldAutomataElements = cy.elements('[automataId = ' + activeAutomata.id +']');
+			oldAutomataElements.addClass('inactive');
+			oldAutomataElements.lock();
+			oldAutomataElements.ungrabify();
+			var newAutomataElements = cy.elements('[automataId = ' + automataId +']');
+			newAutomataElements.unlock();
+			newAutomataElements.grabify();
+			newAutomataElements.removeClass('inactive');
+			activeAutomata = selectedAutomata;
+		});
 		preventEvent = false;
 	}
 	
@@ -452,20 +462,20 @@
 		cy.remove(edge);
 	}
 	
-	function applyBreadthfirstLayout(startNode){
-		var automataEles = cy.elements('[automataId = ' + activeAutomata.id +']');
-		console.log(automataEles);
+	function applyAutomataLayout(rootCenter){
+		var automataEles = cy.elements('[automataId = ' + activeAutomata.id +'][!isGhost]');
+		var startNodes = automataEles.filter('[?isStartState]');
 		var options = {
-			name: 'breadthfirst',
+			name: 'automata',
 			eles: automataEles,
-			fit: true, // whether to fit the viewport to the graph
+			fit: false, // whether to fit the viewport to the graph
 			directed: false, // whether the tree is directed downwards (or edges can point in any direction if false)
+			topdown: false,
 			padding: 30, // padding on fit
-			circle: false, // put depths in concentric circles if true, put depths top down if false
-			spacingFactor: 1.25, // positive spacing factor, larger => more space between nodes (N.B. n/a if causes overlap)
-			boundingBox: undefined, // constrain layout bounds; { x1, y1, x2, y2 } or { x1, y1, w, h }
+			spacingFactor: 3, // positive spacing factor, larger => more space between nodes (N.B. n/a if causes overlap)
+			center: rootCenter, // Centerpoint of the roots {x, y}
 			avoidOverlap: true, // prevents node overlap, may overflow boundingBox if not enough space
-			roots: startNode, // the roots of the trees
+			roots: startNodes, // the roots of the trees
 			maximalAdjustments: 0, // how many times to try to position the nodes in a maximal way (i.e. no backtracking)
 			animate: false, // whether to transition the node positions
 			animationDuration: 500, // duration of animation in ms if enabled
@@ -474,54 +484,17 @@
 			stop: undefined // callback on layoutstop
 		};
 		cy.layout( options );
+		repositionStartGhost(startNodes);
 	}
 	
-	function applyCoseLayout(){
-		var automataEles = cy.elements('[automataId = ' + activeAutomata.id +']');
-		var options = {
-			name: 'cose',
-			eles: automataEles,
-			ready: function() {},  // Called on `layoutready`
-			stop: function() {},  // Called on `layoutstop`
-			animate: true, // Whether to animate while running the layout
-			// The layout animates only after this many milliseconds
-			// (prevents flashing on fast runs)
-			animationThreshold  : 250,
-			// Number of iterations between consecutive screen positions update
-			// (0 -> only updated on the end)
-			refresh             : 20,
-			fit: false, // Whether to fit the network view after when done
-			// Padding on fit
-			padding             : 30,
-			// Constrain layout bounds; { x1, y1, x2, y2 } or { x1, y1, w, h }
-			boundingBox         : undefined,
-			// Extra spacing between components in non-compound graphs
-			componentSpacing    : 100,
-			// Node repulsion (non overlapping) multiplier
-			nodeRepulsion       : function( node ){ return 400000; },
-			// Node repulsion (overlapping) multiplier
-			nodeOverlap         : 10,
-			// Ideal edge (non nested) length
-			idealEdgeLength     : function( edge ){ return 10; },
-			// Divisor to compute edge forces
-			edgeElasticity      : function( edge ){ return 100; },
-			// Nesting factor (multiplier) to compute ideal edge length for nested edges
-			nestingFactor       : 5,
-			// Gravity force (constant)
-			gravity             : 80,
-			// Maximum number of iterations to perform
-			numIter             : 1000,
-			// Initial temperature (maximum node displacement)
-			initialTemp         : 200,
-			// Cooling factor (how the temperature is reduced between consecutive iterations
-			coolingFactor       : 0.95,
-			// Lower temperature threshold (below this point the layout will end)
-			minTemp             : 1.0,
-			// Whether to use threading to speed up the layout
-			useMultitasking     : true
-		};
-
-		cy.layout( options );
+	function repositionStartGhost(collection){
+		for(var i = 0; i < collection.length; i++){
+			var ele = collection[i];
+			var anchorPosition = $.extend({}, ele.position());
+			//TODO Check element width
+			anchorPosition.x -= 75;
+			cy.getElementById(ele.data('startGhost')).position(anchorPosition);
+		}
 	}
 	
 	/* N O D E  F U N C T I O N S */
@@ -665,11 +638,19 @@
 		}
 	});
 	
+	progressSlider.on('slide', function(){
+		jumpToStep(progressSlider.slider('getValue'));
+	});
+	
 	/* C Y  E V E N T S */
 	
 	//Double click and single click distinguish
 	var clicks = 0;
 	cy.on('tap', 'node', function(event) {
+		if(linkingMode){
+			linkMode(event);
+			return;
+		}
 		var target = event.cyTarget;
 		if(target.id() != 'linker' && target.data('automataId') != activeAutomata.id)
 			return;
@@ -695,9 +676,7 @@
 	//Event to move ghost start node with actual node
 	cy.on('drag' , 'node', function(event){
 		if(event.cyTarget.data('automataId') == activeAutomata.id && event.cyTarget.data('isStartState')){
-			var anchorPosition = jQuery.extend({}, event.cyTarget.position());
-			anchorPosition.x -= 75;
-			cy.getElementById(event.cyTarget.data('startGhost')).position(anchorPosition);
+			repositionStartGhost(event.cyTarget);
 		}
 	});
 	
@@ -815,9 +794,32 @@
 	});
 	
 	$('#btnTest').on('click', function(){
-		console.log({});
-		console.log($.extend({},{a: 'x'}));
-		console.log($.extend(Object.create(null),{a: 'x'}));
+		applyAutomataLayout();
+	});
+	
+	$('#btnCloseHelper').on('click', function(){
+		stopTutorial();
+		helperBar.slideUp();
+	});
+	
+	$('#btnFirstStep').on('click', function(){
+		jumpToStep(0);
+	});
+	
+	$('#btnPreviousStep').on('click', function(){
+		jumpToStep(currentProgress-1);
+	});
+	
+	$('#btnPlayPause').on('click', function(){
+		//TODO
+	});
+	
+	$('#btnNextStep').on('click', function(){
+		jumpToStep(currentProgress+1);
+	});
+	
+	$('#btnFinalStep').on('click', function(){
+		jumpToStep(tutorialSteps.length-1);
 	});
 	
 	/* A L G O R I T H M  F U N C T I O N S */
@@ -936,13 +938,21 @@
 		return combinedId;
 	}
 	
-	function getCombinedName(collection){
+	/*	Returns a string with the sorted names of states in the colection
+		the state names can be seperated by colons if the boolean colonSeparated is set.
+	*/
+	function getCombinedName(collection, colonSeparated){
+		if(colonSeparated === undefined){
+			colonSeparated = false;
+		}
 		collection = collection.sort(function (a, b){
 			return a.data('name') > b.data('name');
 		});
 		var combinedName = "";
 		for(var i = 0; i < collection.length; i++){
 			combinedName += collection[i].data('name');
+			if(colonSeparated && i < collection.length-1)
+				combinedName += ',';
 		}
 		return combinedName;
 	}
@@ -992,66 +1002,68 @@
 		});
 	}
 	
-	var highlighCount;
-	var highlightPath;
-	var inputWord;
-	
 	function acceptsWord(word){
 		cy.elements().removeClass('highlighted');
 		//Get all start states from the active automata
-		var currentNodes = cy.nodes('[?isStartState][automataId=' + activeAutomata.id + ']');
+		var currentStates = cy.nodes('[automataId=' + activeAutomata.id + '][?isStartState]');
 		var path = [];
-		inputWord = word;
-		path.push(currentNodes);
-		for (var i = 0, len = word.length; i < len; i++) {
-			var nextEdges = getTransitions(currentNodes, word[i]);
-			var nextNodes = nextEdges.targets();
-
-			if(!nextNodes.empty()){
-				path.push(nextEdges);
-				path.push(nextNodes);
-			}
-			var currentNodes = nextNodes;
-		};
-		highlightCount = 0;
-		highlightPath = path;
-		highlightPathNext();
-	}
-	
-	//Function for animating each field in the highlightPath
-	var highlightPathNext = function(){
-		if(highlightCount < highlightPath.length){
-			if(highlightCount != 0){
-				highlightPath[highlightCount-1].removeClass('highlighted');
-			}
-			highlightPath[highlightCount].addClass('highlighted');
-			highlightCount++;
-			setTimeout(highlightPathNext , 1000);
+		var helpStep = Object.create(null);
+		helpStep['text'] = tutorialText['findStartStates'];
+		path.push(helpStep);
+		helpStep = Object.create(null);
+		if(currentStates.empty()){
+			helpStep['text'] = tutorialText['noStartStates'];
 		}
 		else{
-			var accepted = false;
-			if(containsEndState(highlightPath[highlightCount-1])){
-				accepted = true;
-			}
-			if(accepted){
-				alert(inputWord + ' wurde akzeptiert!');
+			helpStep['text'] = tutorialText['foundStartStates'] + getCombinedName(currentStates,true);
+			helpStep['highlightElements'] = currentStates;
+		}
+		path.push(helpStep);
+		inputWord = word;
+		for(var i = 0, len = word.length; i < len; i++){
+			if(currentStates.empty())
+				break;
+			var nextEdges = getTransitions(currentStates, word[i]);
+			var nextStates = nextEdges.targets();
+
+			helpStep = Object.create(null);
+			if(!nextStates.empty()){
+				helpStep['text'] = tutorialText['readNthSymbol1'] + ( i + 1) + tutorialText['readNthSymbol2'] + word[i] + '"';
+				helpStep['highlightElements'] = nextEdges;
+				path.push(helpStep);
+				helpStep = Object.create(null);
+				helpStep['text'] = tutorialText['useTransitions'] + getCombinedName(nextStates,true);
+				helpStep['highlightElements'] = nextStates;
+				path.push(helpStep);
 			}
 			else{
-				alert(inputWord + ' wurde NICHT akzeptiert!');
+				helpStep['text'] = tutorialText['undefinedTransitions1'] + word[i] + tutorialText['undefinedTransitions2'];
+				helpStep['highlightElements'] = currentStates;
+				break;
 			}
-			cy.elements().removeClass('highlighted')
-			
+			var currentStates = nextStates;
 		}
-	}
-	
-	function logStateArray(array){
-		$.each(array, function(i, elements){
-			var stateNames = "";
-			elements.each(function(j, state){
-				stateNames += state.data('name');
-			});
-			console.log('States:' + i + '=' + stateNames);
-		});
+		if(!currentStates.empty() && i == len){
+			helpStep = Object.create(null);
+			helpStep['text'] = tutorialText['wordFullyRead'];
+			if(containsEndState(currentStates)){
+				helpStep['text'] +=  tutorialText['wordAccepted'];
+			}
+			else{
+				helpStep['text'] +=  tutorialText['wordRejected'];
+			}
+			helpStep['highlightElements'] = currentStates;
+			path.push(helpStep);
+		}
+		
+		tutorialSteps = path;
+		currentProgress = 0;
+		progressSlider.slider('setValue', 0);
+		progressSlider.slider('setAttribute', 'max', tutorialSteps.length-1);
+		textCurrentProgress.text(0);
+		textMaxProgress.text(tutorialSteps.length-1);
+		helperBar.slideDown();
+		jumpToStep(0);
 	}
 	
 	/*  Tests if the activeAutomata is an DFA and saves a reachable states collection
@@ -1091,7 +1103,9 @@
 	}
 	
 	function toDFA(){
-		var startStates = cy.nodes('[?isStartState][automataId=' + activeAutomata.id + ']');
+		var automataStates = cy.nodes('[automataId=' + activeAutomata.id + ']');
+		var automataBb = automataStates.boundingBox();
+		var startStates = automataStates.filter('[?isStartState]');
 		if(startStates.empty())
 			return; //TODO: Error no start states
 		var automataAlphabet = activeAutomata.inputAlphabet;
@@ -1134,12 +1148,15 @@
 			});
 			workingStates = $.extend([], newStates);
 		}
-		applyCoseLayout();
+		var automataPos = {x: automataBb.x2 + 50, y: (automataBb.y1 + automataBb.h) / 2}
+		applyAutomataLayout(automataPos);
 	}
 	
 	function minimizeDFA(){
+		var automataStates = cy.nodes('[automataId=' + activeAutomata.id + ']');
+		var automataBb = automataStates.boundingBox();
 		//Test if DFA
-		var startStates = cy.nodes('[?isStartState][automataId=' + activeAutomata.id + ']');
+		var startStates = automataStates.filter('[?isStartState]');
 		if(startStates.empty())
 			return; //Delete all other states
 		if(startStates.size() > 1)
@@ -1190,13 +1207,15 @@
 		
 		var endStatesIds = Object.create(null);
 		for(var i = 0; i < endStates.length; i++){
-			endStatesIds[endStates[i].id()] = true;
+			var endStateId = endStates[i].id();
+			endStatesIds[endStateId] = true;
 			for(var j = 0; j < reachableStates.length; j++){
+				var reachableStateId = reachableStates[j].id();
 				if(!reachableStates[j].data('isEndState')){
-					if(endStates[i].id() == reachableStates[0].id())
-						markTable[reachableStates[j].id()][endStates[i].id()] = true;
-					else
+					if(endStateId in markTable && reachableStateId in markTable[endStateId])
 						markTable[endStates[i].id()][reachableStates[j].id()] = true;
+					else
+						markTable[reachableStates[j].id()][endStates[i].id()] = true;
 				}
 			}
 		}
@@ -1327,5 +1346,62 @@
 				break;
 			}
 		}
+		
+		var automataPos = {x: automataBb.x2 + 50, y: (automataBb.y1 + automataBb.h) / 2}
+		applyAutomataLayout(automataPos);
+	}
+	
+	var tutorialText = {
+		findStartStates: 'Wir suchen als erstes alle Startzustände des Automaten',
+		foundStartStates: 'Die Startzustände des Automaten sind: ',
+		noStartStates: 'Es sind keine Startzustände vorhanden, kein Wort kann akzeptiert werden!',
+		readNthSymbol1: 'Wir lesen das ',
+		readNthSymbol2: '. Zeichen des Wortes und suchen alle Übergänge von den aktuellen Zuständen mit dem Zeichen "',
+		useTransitions: 'Wir gehen mit unseren gefundenen Übergängen in die Zustände: ',
+		undefinedTransitions1: 'Es sind keine Übergänge von den aktuellen Zuständen für den Buchstaben "',
+		undefinedTransitions2: '" verfügbar, das Wort kann nicht komplett eingelesen werden und wird nicht akzeptiert!',
+		wordFullyRead: 'Wir haben das Wort komplett eingelesen und schauen wir uns die aktuellen Zustände an: <br>',
+		wordAccepted: 'Da sich darunter ein Endzustand befindet, wird das Wort von diesem Automaten akzeptiert!',
+		wordRejected: 'Da sich darunter kein Endzustand befindet, wird das Wort von diesem Automaten nicht akzeptiert!',
+	}
+	
+	var currentProgress;
+	var tutorialSteps;
+	var inputWord;
+	
+	/* T U T O R I A L  F U N C T I O N S */
+	
+	//Function for animating each field in the tutorialSteps
+	var advanceProgress = function(){
+		if(currentProgress < tutorialSteps.length){
+			if(currentProgress != 0){
+				tutorialSteps[currentProgress-1].removeClass('highlighted');
+			}
+			tutorialSteps[currentProgress].addClass('highlighted');
+			textCurrentProgress.text(currentProgress);
+			progressSlider.slider('setValue', currentProgress);
+			currentProgress++;
+			setTimeout(advanceProgress , 1000);
+		}
+	}
+	
+	var jumpToStep = function(progress){
+		if(0 <= progress  && progress < tutorialSteps.length){
+			cy.batch(function(){
+				cy.elements('.highlighted').removeClass('highlighted');
+				if('highlightElements' in tutorialSteps[progress])
+					tutorialSteps[progress]['highlightElements'].addClass('highlighted');
+			});
+			currentProgress = progress;
+			textCurrentProgress.text(currentProgress);
+			textTutorial.html(tutorialSteps[progress]['text']);
+			progressSlider.slider('setValue', currentProgress);
+		}
+	}
+	
+	var stopTutorial = function(){
+		cy.batch(function(){
+			cy.elements('.highlighted').removeClass('highlighted');
+		});
 	}
 });

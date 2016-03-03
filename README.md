@@ -11,7 +11,7 @@ These are things that are or should be included in the final product:
 - [x] Test an automata with input words
 - [x] Transform an automata into an deterministic finite automaton(DFA)
 - [x] Create multiple different automatas
-- [ ] Minimize a DFA
+- [x] Minimize a DFA
 - [ ] Export and import different automatas
 - [ ] Full animations and tutorials
 
@@ -29,6 +29,7 @@ These are things that would be nice to have but might be cut
 * [qTip2](http://qtip2.com/) For handy tooltips
 * https://github.com/cytoscape/cytoscape.js-qtip Slightly modified to match project needs
 * https://github.com/bootstrap-tagsinput/bootstrap-tagsinput Slightly modified for single character input
+* https://github.com/seiyria/bootstrap-slider For nice sliders
 
 ##Anything else?
 This project is currently intended for a german audience which is why the interface is written in german.
