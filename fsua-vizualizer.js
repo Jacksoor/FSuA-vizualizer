@@ -1239,24 +1239,42 @@
 		var startStates = automataStates.filter('[?isStartState]');
 		if(startStates.empty())
 			return; //Delete all other states
-		if(startStates.size() > 1)
+		
+		tutorialSteps = [];
+		var tutorialStep = Object.create(null);
+		tutorialStep['text'] = tutorialText['checkIfDFA'];
+		tutorialSteps.push(tutorialStep);
+		if(startStates.size() > 1){
+			tutorialStep = Object.create(null);
+			tutorialStep['text'] = tutorialText['tooManyStartStates'];
+			tutorialStep['highlightElements'] = startStates;
+			tutorialSteps.push(tutorialStep);
 			return false; //Automata is not a dfa
+		}
 		var startStateId = startStates.id();
 		var reachableStates = startStates;
 		var newStates = cy.nodes('[?isStartState][automataId=' + activeAutomata.id + ']');
 		while(newStates.nonempty()){
 			for(var i = 0; i < newStates.length; i++){
-				var transitions = getTransitions(newStates[i]);
+				var newState = newStates[i]
+				var transitions = getTransitions(newState);
 				var alphabetSet = Object.create(null);
 				for(var j = 0; j < transitions.length; j++){
 					if(!setAdd(alphabetSet, transitions[j].data('transitionSymbols'))){
-						//There are multiple transitions for one symbol
+						tutorialStep = Object.create(null);
+						tutorialStep['text'] = tutorialText['tooManyTransitions'].format(getCombinedName(newState,true));
+						tutorialStep['highlightElements'] = newState;
+						tutorialSteps.push(tutorialStep);
 						return false;
 					};
 				}
 				for(var symbol in activeAutomata.inputAlphabet){
-					if(!symbol in alphabetSet){
-						//There is a transition missing at newState[i]
+					if(!(symbol in alphabetSet)){
+						//There is a transition missing at newState
+						tutorialStep = Object.create(null);
+						tutorialStep['text'] = tutorialText['missingTransition'].format(symbol, getCombinedName(newState,true));
+						tutorialStep['highlightElements'] = newState;
+						tutorialSteps.push(tutorialStep);
 						return false;
 					}
 				}
@@ -1271,10 +1289,15 @@
 		if(endStates.size() == 0)
 			return;
 		
-		//Sort states by id
+		//Sort states by name
 		reachableStates = reachableStates.sort(function (a, b){
-			return a.id() > b.id();
+			return a.data('name') > b.data('name');
 		});
+		
+		tutorialStep = Object.create(null);
+		tutorialStep['text'] = tutorialText['createMarkTable'];
+		tutorialStep['highlightElements'] = reachableStates;
+		tutorialSteps.push(tutorialStep);
 		
 		//Setup mark table
 		var markTable = Object.create(null);
@@ -1285,6 +1308,12 @@
  			}
 		}
 		
+		var newMarks = Object.create(null);
+		tutorialStep = Object.create(null);
+		tutorialStep['text'] = tutorialText['markTableDescription'];
+		tutorialStep['highlightElements'] = reachableStates;
+		tutorialSteps.push(tutorialStep);
+		
 		var endStatesIds = Object.create(null);
 		for(var i = 0; i < endStates.length; i++){
 			var endStateId = endStates[i].id();
@@ -1292,13 +1321,30 @@
 			for(var j = 0; j < reachableStates.length; j++){
 				var reachableStateId = reachableStates[j].id();
 				if(!reachableStates[j].data('isEndState')){
-					if(endStateId in markTable && reachableStateId in markTable[endStateId])
-						markTable[endStates[i].id()][reachableStates[j].id()] = true;
-					else
-						markTable[reachableStates[j].id()][endStates[i].id()] = true;
+					if(endStateId in markTable && reachableStateId in markTable[endStateId]){
+						markTable[endStateId][reachableStateId] = true;
+						newMarks[endStateId + reachableStateId] = true;
+					}
+					else{
+						markTable[reachableStateId][endStateId] = true;
+						newMarks[reachableStateId + endStateId] = true;
+					}
 				}
 			}
 		}
+		
+		tutorialStep = Object.create(null);
+		tutorialStep['text'] = tutorialText['markEndStates'];
+		tutorialStep['highlightElements'] = endStates;
+		tutorialStep['marks'] = newMarks;
+		tutorialStep['newMarks'] = newMarks;
+		tutorialSteps.push(tutorialStep);
+		
+		
+		tutorialStep = Object.create(null);
+		tutorialStep['marks'] = newMarks;
+		tutorialStep['text'] = tutorialText['checkUnmarkedFields'];
+		tutorialSteps.push(tutorialStep);
 		
 		var marked;
 		do{
@@ -1308,22 +1354,51 @@
 					if(!markTable[row][column]){
 						var state1 = cy.getElementById(row);
 						var state2 = cy.getElementById(column);
+						var startPairName = state1.data('name') + ',' + state2.data('name');
+						var startPairId = state1.id() + state2.id();
 						for(var symbol in activeAutomata.inputAlphabet){
-							var transitionState1 = getTransitionStates(state1, symbol).id();
-							var transitionState2 = getTransitionStates(state2, symbol).id();
-							if(transitionState1 != transitionState2){
+							tutorialStep = Object.create(null);
+							tutorialStep['marks'] = tutorialSteps[tutorialSteps.length-1]['marks'];
+							
+							var transitionState1 = getTransitionStates(state1, symbol);
+							var transitionState2 = getTransitionStates(state2, symbol);
+							
+							//tutorialStep['highlightElements'] = state1.add([state2, transitionState1, transitionState2]);
+							if(transitionState1.id() != transitionState2.id()){
 								//If transition nodes are out of index table index swap them
-								if(transitionState1 == reachableStates[0].id() || transitionState2 == reachableStates[reachableStates.length-1].id()){
+								if(transitionState1.id() == reachableStates[0].id() || transitionState2.id() == reachableStates[reachableStates.length-1].id()){
 									var temp = transitionState1;
 									transitionState1 = transitionState2;
 									transitionState2 = temp;
 								}
-								if(markTable[transitionState1][transitionState2]){
+								var reachedPairName = transitionState1.data('name') + ',' + transitionState2.data('name');
+								var reachedPairId = transitionState1.id() + transitionState2.id();
+								tutorialStep['startPair'] = startPairId;
+								tutorialStep['reachedPair'] = reachedPairId;
+								tutorialStep['text'] = tutorialText['statePairTransitionsTo'].format(startPairName, symbol, reachedPairName);
+								
+								if(markTable[transitionState1.id()][transitionState2.id()]){
 									markTable[state1.id()][state2.id()] = true;
 									marked = true;
+									
+									tutorialStep['text'] += tutorialText['pairIsMarked'].format(reachedPairName, startPairName);
+									var marks = $.extend({}, tutorialStep['marks']);
+									newMarks = Object.create(null);
+									newMarks[startPairId] = true;
+									marks[startPairId] = true;
+									tutorialStep['newMarks'] = newMarks;
+									tutorialStep['marks'] = marks;
+									tutorialSteps.push(tutorialStep);
 									break;
 								}
+								else{
+									tutorialStep['text'] += tutorialText['pairIsNotMarked'].format(reachedPairName);
+								}
 							}
+							else{
+								tutorialStep['text'] = tutorialText['statePairTransitionsTo'].format(startPairName, symbol, transitionState1.data('name') + transitionState1.data('name')) + tutorialText['pairSameState'];
+							}
+							tutorialSteps.push(tutorialStep);
 						}
 					}
 				}
@@ -1429,6 +1504,7 @@
 		
 		var automataPos = {x: automataBb.x2 + 50, y: (automataBb.h / 2 + automataBb.y1)}
 		applyAutomataLayout(automataPos);
+		setupTutorial(2,markTable);
 	}
 	
 	if (!String.prototype.format) {
@@ -1471,6 +1547,19 @@
 		addSymbolToEdge: 'Wir fügen zur bereits bestehenden Übergang von ({0}) {1} das Zeichen "{2}" hinzu.',
 		removeWorkingState: 'Wir haben für alle Zeichen der Eingabealphabetes die Übergänge definiert, der Zustand ({0}) ist abgearbeitet.',
 		toDfaDone: 'Es sind keine neuen Zustände mehr vorgekommen, der DFA ist fertig.', 
+		checkIfDFA: 'Wir überprüfen als erstes ob es sich bei dem Automaten um einen DFA handelt',
+		tooManyStartStates: 'Es ist mehr als ein Startzustand vorhanden, der Automat ist kein DFA!',
+		tooManyTransitions: 'Es ist mehr als ein Übergang für ein Zeichen im Zustand ({0}) definiert, der Automat ist kein DFA!',
+		missingTransition: 'Es fehlt ein Übergang für das Zeichen "{0}" im Zustand ({1}), der Automat ist kein DFA!',
+		markTable: 'Markierungstabelle',
+		createMarkTable: 'Da der Automat ein DFA ist, können wir für alle erreichbaren Zustände die Markierungstabelle erstellen.',
+		markTableDescription: 'In der Markierungstabelle sind alle ungleichen Paare von erreichbaren Zuständen aufgeführt',
+		markEndStates: 'Wir markieren als erstes alle Paare von Endzustand und nicht Endzustand, aber nicht Paare von Endzuständen!',
+		checkUnmarkedFields: 'Wir überprüfen nun für jedes unmarkierte Feld ob ein Übergang in ein markiertes Zustandspaar geht.',
+		statePairTransitionsTo: 'Zustandspaar ({0}) geht mit dem Zeichen "{1}" über in das Zustandspaar ({2})',
+		pairIsMarked: '<br>Zustandspaar ({0}) ist markiert, darum müssen wir auch ({1}) markieren und können das nächste Zustandspaar untersuchen.',
+		pairIsNotMarked: '<br>Zustandspaar ({0}) ist nicht markiert, wir müssen nichts unternehmen.',
+		pairSameState: '<br>Das erreichte Zustandspaar besteht aus nur einem Zustand und muss daher nicht beachtet werden.',
 	}
 	
 	/* T U T O R I A L  F U N C T I O N S */
@@ -1568,7 +1657,9 @@
 	function setupSidebar(mode, modeParam){
 		sidebarMode = mode;
 		tableSidebar.empty();
+		tutorialSidebar.removeClass('sidebar-small sidebar-large');
 		if(sidebarMode == 0){
+			tutorialSidebar.addClass('sidebar-small');
 			textSidebarTitle.text(tutorialText['inputWord']);
 			var row = $('<tr id="rowInputWord"></tr>').appendTo(tableSidebar);
 			for(i = 0; i < modeParam.length; i++){
@@ -1577,7 +1668,26 @@
 			tableSidebar.append('<tr id="rowInputPos" class="row-borderless"></tr>');
 		}
 		if(sidebarMode == 1){
+			tutorialSidebar.addClass('sidebar-small');
 			textSidebarTitle.text(tutorialText['newStates']);
+		}
+		if(sidebarMode == 2){
+			tutorialSidebar.addClass('sidebar-large');
+			textSidebarTitle.text(tutorialText['markTable']);
+			var row;
+			var tableRow;
+			for(row in modeParam){
+				tableRow = $('<tr></tr>').appendTo(tableSidebar);
+				tableRow.append('<td>' + cy.getElementById(row).data('name') + '</td>');
+				for(var column in modeParam[row]){
+					tableRow.append('<td id="' + row + column + '"></td>');
+				}
+			}
+			tableRow = $('<tr></tr>').appendTo(tableSidebar);
+			tableRow.append('<td></td>');
+			for(var column in modeParam[row]){
+				tableRow.append('<td>' + cy.getElementById(column).data('name') + '</td>');
+			}
 		}
 	}
 	

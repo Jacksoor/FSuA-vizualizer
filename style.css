@@ -102,7 +102,7 @@ body {
 	transform: translateX(-100%);
     -webkit-transform: translateX(-100%);
 	position: absolute;
-    top: -160px;
+    
     left: 0;
     height: 150px;
 	min-width: 200px;
@@ -114,13 +114,27 @@ body {
 	box-shadow: 1px 1px 23px rgba(0, 0, 0, 0.17), 1px 1px 0 rgba(255, 255, 255, 0.85) inset;
 }
 
+.sidebar-large{
+	height: 350px;
+	top:-350px;
+}
+
+.sidebar-small{
+	height: 150px;
+	top: -150px;
+}
+
 .tutorial-sidebar h3{
-	margin-top: 0px;
+	margin-top: 5px;
 }
 
 .table-container{
+	overflow: auto;
 	width: 100%;
-	overflow-x: auto;
+}
+
+.sidebar-large .table-container{
+	height: 300px;
 }
 
 .open {
@@ -153,7 +167,7 @@ body {
 
 .tutorial-sidebar-handle{
 	width: 25px;
-	height: 150px;
+	height: 100%;
 	position: absolute;
 	top: 0;
 	right: -25px;
@@ -177,9 +191,11 @@ body {
 	transform: rotate(180deg);
 }
 
-.sidebar-table{
+.sidebar-table td{
 	text-align: center;
+	width: 40px;
 }
+
 
 #sliderProgress {
 	margin-top:5px;
