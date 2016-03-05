@@ -72,15 +72,15 @@ body {
 	display: none;
 }
 
-.helper-bar{
+.tutorial-bar{
 	display: none;
 	position: absolute;
 	bottom: 0;
 	width: 100%;
 	padding: 5px;
+	background-color: #FFF;
 	border-top: 1px solid #E0E0E0;
 	box-shadow: 1px 1px 23px rgba(0, 0, 0, 0.17), 1px 1px 0 rgba(255, 255, 255, 0.85) inset;
-	background-color: #FFF;
 	z-index: 2;
 }
 
@@ -93,8 +93,92 @@ body {
 	margin: 0 auto;
 }
 
-.helper-bar .close-button{
+.tutorial-bar .close-button{
 	float:right;
+	font-size: 24pt;
+}
+
+.tutorial-sidebar{
+	transform: translateX(-100%);
+    -webkit-transform: translateX(-100%);
+	position: absolute;
+    top: -160px;
+    left: 0;
+    height: 150px;
+	min-width: 200px;
+	max-width: 50%;
+	padding: 5px;
+	background-color: #FFF;
+	border-top: 1px solid #E0E0E0;
+	border-bottom: 1px solid #E0E0E0;
+	box-shadow: 1px 1px 23px rgba(0, 0, 0, 0.17), 1px 1px 0 rgba(255, 255, 255, 0.85) inset;
+}
+
+.tutorial-sidebar h3{
+	margin-top: 0px;
+}
+
+.table-container{
+	width: 100%;
+	overflow-x: auto;
+}
+
+.open {
+	-webkit-animation: open 0.5s forwards;
+	animation: open 0.5s forwards;
+}
+
+.closed{
+	-webkit-animation: close 0.5s forwards;
+	animation: close 0.5s forwards;
+}
+    
+@keyframes open {
+    100% { transform: translateX(0%); }
+}
+
+@-webkit-keyframes open {
+    100% { -webkit-transform: translateX(0%); }
+}
+    
+@keyframes close {
+    0% { transform: translateX(0%); }
+    100% { transform: translateX(-100%); }
+}
+
+@-webkit-keyframes close {
+    0% { -webkit-transform: translateX(0%); }
+    100% { -webkit-transform: translateX(-100%); }
+}
+
+.tutorial-sidebar-handle{
+	width: 25px;
+	height: 150px;
+	position: absolute;
+	top: 0;
+	right: -25px;
+	color: white;
+	text-align: center;
+	cursor: pointer;
+}
+
+
+.tutorial-sidebar-handle > span {
+    transition-duration: 0.5s;
+	transition-property: transform;
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    margin-top: -5px;
+}
+
+.open .tutorial-sidebar-handle  > span{
+	transform: rotate(180deg);
+}
+
+.sidebar-table{
+	text-align: center;
 }
 
 #sliderProgress {

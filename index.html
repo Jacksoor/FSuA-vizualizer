@@ -79,10 +79,20 @@
 			<button class="btn btn-default btn-lg" id="btnSave">Graph speichern <span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span></button>
 		</div>
 		
-		<div class="helper-bar container-fluid" id="helperBar">
-			<button type="button" class="btn btn-danger btn-lg close-button" id="btnCloseHelper">
-				<span class="glyphicon glyphicon-remove" aria-hidden="true"></span>
-			</button>
+		<div class="tutorial-bar container-fluid" id="tutorialBar">
+			<div class="tutorial-sidebar" id="tutorialSidebar">
+				<div class="tutorial-sidebar-handle bg-primary" id="tutorialSidebarHandle">
+					<span class="glyphicon glyphicon-chevron-right" aria-hidden="true"></span>
+				</div>
+				<h3 id="textTitleSidebar">Titel</h3>
+				<div class="table-container">
+					<table class="table table-bordered">
+						<tbody id="tableSidebar">
+						</tbody>
+					</table>
+				</div>
+			</div>
+			<button type="button" class="close close-button" id="btnCloseTutorial" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			<div class="row">
 				<div class="col-sm-2">
 					<div class="progress-text">

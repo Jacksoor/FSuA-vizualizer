@@ -115,6 +115,7 @@
 		}
 	});
 	
+	/* V A R I A B L E S */
 	var automataCounter = 1;
 	var nextId = 0;
 	var automatas = [{id: 1, name: 'Automat 1', nextState: 0, inputAlphabet: Object.create(null)}];
@@ -127,18 +128,26 @@
 	var mouseLeftNode = false;
 	var previewEdge = null;
 	
-	//Get Settings
+	//Graph Settings
 	var apiTipEdgeSettings = null;
 	var edgeSettingsError = $('#errorTransitionSymbols');
 	var settingsActive = false;
 	var editNode = null;
 	var editEdge = null;
 	
-	var helperBar = $('#helperBar');
+	//Tutorial
+	var currentProgress;
+	var tutorialSteps;
+	var sidebarMode; //0 = acceptsWord, 1 = toDFA, 2 = minimizeDFA,
+	
+	var tutorialBar = $('#tutorialBar');
 	var progressSlider = $('#inputProgress').slider();
 	var textCurrentProgress = $('#textCurrentProgress');
 	var textMaxProgress = $('#textMaxProgress');
 	var textTutorial = $('#textTutorial');
+	var tutorialSidebar = $('#tutorialSidebar');
+	var textSidebarTitle = $('#textTitleSidebar');
+	var tableSidebar = $('#tableSidebar');
 	
 	/* F U N C T I O N S */
 	function createNewAutomata(alphabet){
@@ -189,7 +198,7 @@
 	
 	function startLinkingMode(event){
 		cy.add([
-			{ group: "nodes", data: { id: "linker", isGhost: true}, classes: 'ghostNode', renderedPosition: event.cyRenderedPosition },
+			{ group: "nodes", data: { id: "linker", isGhost: true}, classes: 'ghostNode', grabbable: false, renderedPosition: event.cyRenderedPosition },
 			{ group: "edges", data: { id: "newLink", isGhost: true, source: linkSourceNode.id(), target: 'linker'}, classes: 'previewEdge' },
 		]);
 	}
@@ -402,7 +411,7 @@
 	/* G R A P H  F U N C T I O N S */
 	
 	function addState(id, name){
-		cy.add([
+		return cy.add([
 			{ group: "nodes", data: { id: id, automataId: activeAutomata.id, name: name, isStartState: false, isEndState: false, hasLoop: false } },
 		]);
 	}
@@ -430,7 +439,7 @@
 			edgeText = symbol;
 		}
 		if(edge.size() == 0){
-			cy.add([
+			var newEdge = cy.add([
 				{ group: "edges", data: { id: 'e' + nextId, automataId: activeAutomata.id, source: sourceId, transitionSymbols: edgeTransitions, symbolsText: edgeText, target: targetId } }
 			]);
 			if(sourceId == targetId){
@@ -438,11 +447,13 @@
 				cy.getElementById('e' + nextId).addClass('loop');
 			}
 			nextId++;
+			return newEdge;
 		}
 		else{
 			if(symbol === undefined)
 				return;
 			addTransitionSymbol(edge[0], symbol);
+			return edge;
 		}
 	}
 	
@@ -638,7 +649,7 @@
 		}
 	});
 	
-	progressSlider.on('slide', function(){
+	progressSlider.on('change', function(){
 		jumpToStep(progressSlider.slider('getValue'));
 	});
 	
@@ -794,12 +805,12 @@
 	});
 	
 	$('#btnTest').on('click', function(){
-		applyAutomataLayout();
+		tutorialBar.slideDown();
 	});
 	
-	$('#btnCloseHelper').on('click', function(){
+	$('#btnCloseTutorial').on('click', function(){
 		stopTutorial();
-		helperBar.slideUp();
+		tutorialBar.slideUp();
 	});
 	
 	$('#btnFirstStep').on('click', function(){
@@ -875,9 +886,7 @@
 		//Get only outgoing transitions with matching symbol
 		else{
 			var transitionEdges = getTransitions(nodes, symbol);
-			transitionEdges.each(function(i, edge){
-				transitionStates = transitionStates.add(edge.target());
-			});
+			transitionStates = transitionEdges.targets();
 		}
 		return transitionStates;
 	}
@@ -1006,64 +1015,62 @@
 		cy.elements().removeClass('highlighted');
 		//Get all start states from the active automata
 		var currentStates = cy.nodes('[automataId=' + activeAutomata.id + '][?isStartState]');
-		var path = [];
-		var helpStep = Object.create(null);
-		helpStep['text'] = tutorialText['findStartStates'];
-		path.push(helpStep);
-		helpStep = Object.create(null);
+		var currentStatesName = getCombinedName(currentStates, true);
+		tutorialSteps = [];
+		var tutorialStep = Object.create(null);
+		tutorialStep['text'] = tutorialText['findStartStates'];
+		tutorialSteps.push(tutorialStep);
+		tutorialStep = Object.create(null);
 		if(currentStates.empty()){
-			helpStep['text'] = tutorialText['noStartStates'];
+			tutorialStep['text'] = tutorialText['noStartStates'];
 		}
 		else{
-			helpStep['text'] = tutorialText['foundStartStates'] + getCombinedName(currentStates,true);
-			helpStep['highlightElements'] = currentStates;
+			tutorialStep['text'] = tutorialText['foundStartStates'].format(currentStatesName);
+			tutorialStep['highlightElements'] = currentStates;
 		}
-		path.push(helpStep);
-		inputWord = word;
+		tutorialSteps.push(tutorialStep);
 		for(var i = 0, len = word.length; i < len; i++){
 			if(currentStates.empty())
 				break;
 			var nextEdges = getTransitions(currentStates, word[i]);
 			var nextStates = nextEdges.targets();
-
-			helpStep = Object.create(null);
+			tutorialStep = Object.create(null);
+			tutorialStep['readerPos'] = i;
 			if(!nextStates.empty()){
-				helpStep['text'] = tutorialText['readNthSymbol1'] + ( i + 1) + tutorialText['readNthSymbol2'] + word[i] + '"';
-				helpStep['highlightElements'] = nextEdges;
-				path.push(helpStep);
-				helpStep = Object.create(null);
-				helpStep['text'] = tutorialText['useTransitions'] + getCombinedName(nextStates,true);
-				helpStep['highlightElements'] = nextStates;
-				path.push(helpStep);
+			tutorialStep['text'] = tutorialText['readNthSymbol'].format(( i + 1), currentStatesName, word[i]);
+				tutorialStep['highlightElements'] = nextEdges.add(currentStates);
+				tutorialSteps.push(tutorialStep);
+				tutorialStep = Object.create(null);
+				tutorialStep['text'] = tutorialText['useTransitions'].format(getCombinedName(nextStates,true));
+				tutorialStep['highlightElements'] = nextStates;
+				tutorialStep['readerPos'] = i;
+				tutorialSteps.push(tutorialStep);
 			}
 			else{
-				helpStep['text'] = tutorialText['undefinedTransitions1'] + word[i] + tutorialText['undefinedTransitions2'];
-				helpStep['highlightElements'] = currentStates;
+				tutorialStep['text'] = tutorialText['undefinedTransitions'].format(currentStatesName, word[i]);
+				tutorialStep['highlightElements'] = currentStates;
+				tutorialStep['terminatePos'] = i;
+				tutorialSteps.push(tutorialStep);
 				break;
 			}
 			var currentStates = nextStates;
+			currentStatesName = getCombinedName(currentStates, true);
 		}
 		if(!currentStates.empty() && i == len){
-			helpStep = Object.create(null);
-			helpStep['text'] = tutorialText['wordFullyRead'];
+			tutorialStep = Object.create(null);
+			tutorialStep['text'] = tutorialText['wordFullyRead'].format(currentStatesName);
 			if(containsEndState(currentStates)){
-				helpStep['text'] +=  tutorialText['wordAccepted'];
+				tutorialStep['text'] +=  tutorialText['wordAccepted'];
+				tutorialStep['wordAccepted'] = true;
 			}
 			else{
-				helpStep['text'] +=  tutorialText['wordRejected'];
+				tutorialStep['text'] +=  tutorialText['wordRejected'];
+				tutorialStep['wordAccepted'] = false;
 			}
-			helpStep['highlightElements'] = currentStates;
-			path.push(helpStep);
+			tutorialStep['highlightElements'] = currentStates;
+			tutorialSteps.push(tutorialStep);
 		}
-		
-		tutorialSteps = path;
-		currentProgress = 0;
-		progressSlider.slider('setValue', 0);
-		progressSlider.slider('setAttribute', 'max', tutorialSteps.length-1);
-		textCurrentProgress.text(0);
-		textMaxProgress.text(tutorialSteps.length-1);
-		helperBar.slideDown();
-		jumpToStep(0);
+		setupTutorial(0, word);
 	}
 	
 	/*  Tests if the activeAutomata is an DFA and saves a reachable states collection
@@ -1106,8 +1113,22 @@
 		var automataStates = cy.nodes('[automataId=' + activeAutomata.id + ']');
 		var automataBb = automataStates.boundingBox();
 		var startStates = automataStates.filter('[?isStartState]');
-		if(startStates.empty())
+		tutorialSteps = [];
+		var tutorialStep = Object.create(null);
+		tutorialStep['text'] = tutorialText['findStartStates'];
+		tutorialSteps.push(tutorialStep);
+		tutorialStep = Object.create(null);
+		if(startStates.empty()){
+			tutorialStep['text'] = tutorialText['noStartStates'];
+			tutorialSteps.push(tutorialStep);
 			return; //TODO: Error no start states
+		}
+		else{
+			tutorialStep['text'] = tutorialText['foundStartStates'].format(getCombinedName(startStates,true));
+			tutorialStep['highlightElements'] = startStates;
+		}
+		tutorialSteps.push(tutorialStep);
+		
 		var automataAlphabet = activeAutomata.inputAlphabet;
 		var workingStates = [startStates];
 		var allStates = Object.create(null);
@@ -1121,35 +1142,94 @@
 		var startState = cy.getElementById(startStatesId)
 		setStartState(startState,true);
 		
-		if(containsEndState(startStates))
+		var workingStatesIds = Object.create(null);
+		tutorialStep = Object.create(null);
+		tutorialStep['text'] = tutorialText['combineStartStates'];
+		tutorialStep['highlightElements'] = startState;
+		tutorialStep['workingStateNew'] = startStatesId;
+		if(containsEndState(startStates)){
 			setEndState(startState, true);
-		while(workingStates.length > 0){
-			var newStates = [];
-			$.each(workingStates, function(i, currentState){
-				var currentStateId = prefix + getCombinedId(currentState);
-				for(var symbol in automataAlphabet){
-					var reachedState = getTransitionStates(currentState, symbol);
-					var reachedStateId = prefix + getCombinedId(reachedState);
-					var reachedStateName = getCombinedName(reachedState)
-					if(setAdd(allStates, reachedStateId)){
-						if(reachedStateId != prefix){
-							addState(reachedStateId, reachedStateName);
-						}
-						else{
-							//Create catch state
-							addState(reachedStateId, '∅');
-						}
-						if(containsEndState(reachedState))
-							setEndState(cy.getElementById(reachedStateId),true);
-						newStates.push(reachedState);
-					}
-					addEdge(currentStateId, reachedStateId, symbol);
-				}
-			});
-			workingStates = $.extend([], newStates);
+			tutorialStep['text'] += tutorialText['startContainsEndState'];
 		}
-		var automataPos = {x: automataBb.x2 + 50, y: (automataBb.y1 + automataBb.h) / 2}
+		workingStatesIds[startStatesId] = startStatesName;
+		tutorialStep['workingStates'] = $.extend({}, workingStatesIds);
+		tutorialSteps.push(tutorialStep);
+		
+		for(var i = 0; i < workingStates.length; i++){
+			var currentStates = workingStates[i];
+			var currentStateId = prefix + getCombinedId(currentStates);
+			var currentStateName = getCombinedName(currentStates, true);
+			workingStatesIds[currentStateId] = currentStateName;
+			for(var symbol in automataAlphabet){
+				var transitions = getTransitions(currentStates, symbol);
+				var reachedStates = transitions.targets();
+				var reachedStateId = prefix + getCombinedId(reachedStates);
+				var reachedStateName = getCombinedName(reachedStates, true);
+				tutorialStep = Object.create(null);
+				if(reachedStateId != prefix)
+					tutorialStep['text'] = tutorialText['stateTransitions'].format(currentStateName,symbol,reachedStateName);
+				else
+			tutorialStep['text'] = tutorialText['stateNoTransitions'].format(currentStateName, symbol);
+				tutorialStep['highlightElements'] = currentStates.add(reachedStates).add(transitions);
+				tutorialStep['workingStates'] = $.extend({}, workingStatesIds);
+				tutorialStep['workingStateActive'] = currentStateId;
+				tutorialSteps.push(tutorialStep);
+				if(setAdd(allStates, reachedStateId)){
+					tutorialStep = Object.create(null);
+					tutorialStep['text'] =  tutorialText['newStateFound'].format((reachedStateId == prefix ? tutorialText['catchState'] : ( tutorialText['theState'] + '(' + reachedStateName + ')')));
+					if(reachedStateId != prefix){
+						var reachedNewState = addState(reachedStateId, reachedStateName);
+						if(containsEndState(reachedStates)){
+							setEndState(reachedNewState ,true);
+							tutorialStep['text'] += tutorialText['containsEndState'];
+						}
+						tutorialStep['highlightElements'] = reachedNewState;
+						tutorialStep['workingStateNew'] = reachedStateId;
+						workingStatesIds[reachedStateId] = reachedStateName;
+						tutorialStep['workingStates'] = $.extend({}, workingStatesIds);
+						workingStates.push(reachedStates);
+					}
+					else{
+						//Create catch state
+						var catchState = addState(reachedStateId, '∅');
+						var newEdge;
+						for(var s in automataAlphabet){
+							newEdge = addEdge(reachedStateId, reachedStateId, s);
+						}
+						tutorialStep['text'] += tutorialText['createCatchState'];
+						tutorialStep['highlightElements'] = catchState.add(newEdge);
+						tutorialStep['workingStates'] = tutorialSteps[tutorialSteps.length-1]['workingStates'];
+					}
+					tutorialStep['workingStateActive'] = currentStateId;
+					tutorialSteps.push(tutorialStep);
+					
+				}
+				tutorialStep = Object.create(null);
+				var newEdge = addEdge(currentStateId, reachedStateId, symbol);
+				if(Object.keys(newEdge.data('transitionSymbols')).length > 1){
+				tutorialStep['text'] = tutorialText['addSymbolToEdge'].format(currentStateName,(reachedStateId == prefix ? tutorialText['toCatchState'] : (tutorialText['to'] + '(' + reachedStateName + ')')),symbol);
+				}
+				else{
+					tutorialStep['text'] = tutorialText['addNewEdge'].format(currentStateName,(reachedStateId == prefix ? tutorialText['toCatchState'] : (tutorialText['to'] + '(' + reachedStateName + ')')),symbol);
+				}
+				tutorialStep['highlightElements'] = newEdge;
+				tutorialStep['workingStates'] = tutorialSteps[tutorialSteps.length-1]['workingStates'];
+				tutorialStep['workingStateActive'] = currentStateId;
+				tutorialSteps.push(tutorialStep);
+			}
+			tutorialStep = Object.create(null);
+			tutorialStep['text'] = tutorialText['removeWorkingState'].format(currentStateName);
+			tutorialStep['workingStates'] = $.extend({}, workingStatesIds);
+			tutorialStep['workingStateRemove'] = currentStateId;
+			tutorialSteps.push(tutorialStep);
+			delete workingStatesIds[currentStateId];
+		}
+		tutorialStep = Object.create(null);
+		tutorialStep['text'] = tutorialText['toDfaDone'];
+		tutorialSteps.push(tutorialStep);
+		var automataPos = {x: automataBb.x2 + 50, y: (automataBb.h / 2 + automataBb.y1)}
 		applyAutomataLayout(automataPos);
+		setupTutorial(1);
 	}
 	
 	function minimizeDFA(){
@@ -1347,27 +1427,51 @@
 			}
 		}
 		
-		var automataPos = {x: automataBb.x2 + 50, y: (automataBb.y1 + automataBb.h) / 2}
+		var automataPos = {x: automataBb.x2 + 50, y: (automataBb.h / 2 + automataBb.y1)}
 		applyAutomataLayout(automataPos);
 	}
 	
-	var tutorialText = {
-		findStartStates: 'Wir suchen als erstes alle Startzustände des Automaten',
-		foundStartStates: 'Die Startzustände des Automaten sind: ',
-		noStartStates: 'Es sind keine Startzustände vorhanden, kein Wort kann akzeptiert werden!',
-		readNthSymbol1: 'Wir lesen das ',
-		readNthSymbol2: '. Zeichen des Wortes und suchen alle Übergänge von den aktuellen Zuständen mit dem Zeichen "',
-		useTransitions: 'Wir gehen mit unseren gefundenen Übergängen in die Zustände: ',
-		undefinedTransitions1: 'Es sind keine Übergänge von den aktuellen Zuständen für den Buchstaben "',
-		undefinedTransitions2: '" verfügbar, das Wort kann nicht komplett eingelesen werden und wird nicht akzeptiert!',
-		wordFullyRead: 'Wir haben das Wort komplett eingelesen und schauen wir uns die aktuellen Zustände an: <br>',
-		wordAccepted: 'Da sich darunter ein Endzustand befindet, wird das Wort von diesem Automaten akzeptiert!',
-		wordRejected: 'Da sich darunter kein Endzustand befindet, wird das Wort von diesem Automaten nicht akzeptiert!',
+	if (!String.prototype.format) {
+		String.prototype.format = function() {
+		var args = arguments;
+		return this.replace(/{(\d+)}/g, function(match, number) { 
+			return typeof args[number] != 'undefined'
+				? args[number]
+				: match
+				;
+			});
+		};
 	}
 	
-	var currentProgress;
-	var tutorialSteps;
-	var inputWord;
+	var tutorialText = {
+		findStartStates: 'Wir suchen als erstes alle Startzustände des Automaten.',
+		foundStartStates: 'Die Startzustände des Automaten sind: ({0}).',
+		noStartStates: 'Es sind keine Startzustände vorhanden, kein Wort kann akzeptiert werden!',
+		readNthSymbol: 'Wir lesen das {0}. Zeichen des Wortes und suchen alle Übergänge von ({1}) mit dem Zeichen "{2}".',
+		useTransitions: 'Wir gehen mit unseren gefundenen Übergängen in die Zustände: ({0})',
+		undefinedTransitions: 'Es sind keine Übergänge von ({0}) für das Zeichen "{1}" verfügbar, das Wort kann nicht komplett eingelesen werden und wird nicht akzeptiert!',
+		wordFullyRead: 'Wir haben das Wort komplett eingelesen und schauen wir uns die aktuellen Zustände ({0}) an: <br>',
+		wordAccepted: 'Da sich darunter ein Endzustand befindet, wird das Wort von diesem Automaten akzeptiert!',
+		wordRejected: 'Da sich darunter kein Endzustand befindet, wird das Wort von diesem Automaten nicht akzeptiert!',
+		inputWord: 'Eingabewort',
+		combineStartStates: 'Wir fassen alle Startzustände zu einem neuen Startzustand zusammen.',
+		startContainsEndState: '<br>Da sich darunter mindestens ein Endzustand befindet, ist auch der neue Startzustand ein Endzustand.',
+		checkNewStates: 'Wir müssen nun für alle neuen Zustände alle Übergänge überprüfen',
+		stateTransitions: 'Der Zustand ({0}) geht mit dem Zeichen "{1}" über in den Zustand ({2})',
+		stateNoTransitions: 'Der Zustand ({0}) hat keine Übergänge für das Zeichen "{1}"',
+		newStateFound: '{0} exsistiert noch nicht, darum müssen wir einen neuen Zustand erstellen.',
+		theState: 'Der Zustand ',
+		catchState: 'Ein Fangzustand',
+		createCatchState: '<br>Für den Fangzustand führen alle Übergänge wieder zum Fangzustand, deswegen müssen wir ihn nicht weiter betrachten.',
+		containsEndState: '<br>Außerdem befindet sich ein Endzustand im neuen Zustand, dadurch ist der neue Zustand auch ein Endzustand.',
+		newStates: 'Neue Zustände',
+		addNewEdge: 'Wir fügen eine neuen Übergang von ({0}) {1} mit dem Zeichen "{2}" in unseren Automaten ein.',
+		toCatchState: ' zum Fangzustand',
+		to: ' zu ',
+		addSymbolToEdge: 'Wir fügen zur bereits bestehenden Übergang von ({0}) {1} das Zeichen "{2}" hinzu.',
+		removeWorkingState: 'Wir haben für alle Zeichen der Eingabealphabetes die Übergänge definiert, der Zustand ({0}) ist abgearbeitet.',
+		toDfaDone: 'Es sind keine neuen Zustände mehr vorgekommen, der DFA ist fertig.', 
+	}
 	
 	/* T U T O R I A L  F U N C T I O N S */
 	
@@ -1387,14 +1491,59 @@
 	
 	var jumpToStep = function(progress){
 		if(0 <= progress  && progress < tutorialSteps.length){
+			var currentStep = tutorialSteps[progress];
 			cy.batch(function(){
 				cy.elements('.highlighted').removeClass('highlighted');
-				if('highlightElements' in tutorialSteps[progress])
-					tutorialSteps[progress]['highlightElements'].addClass('highlighted');
+				if('highlightElements' in currentStep)
+					currentStep['highlightElements'].addClass('highlighted');
 			});
+			if(sidebarMode == 0){
+				var row = $('#rowInputWord td');
+				var readerPos = -1;
+				var wordAccepted;
+				var terminatePos = -1;
+				if('readerPos' in currentStep)
+					readerPos = currentStep['readerPos'];
+				if('terminatePos' in currentStep)
+					terminatePos = currentStep['terminatePos'];
+				if('wordAccepted' in currentStep)
+					wordAccepted = currentStep['wordAccepted'];
+				
+				row.each( function ( i, ele) {
+					var ele = $(ele);
+					ele.removeClass();
+					if( i < readerPos)
+						ele.addClass('success');
+					else if(i == terminatePos)
+						ele.addClass('danger');
+					else if( i == readerPos)
+						ele.addClass('info');
+					else if( wordAccepted === true)
+						ele.addClass('success');
+					else if( wordAccepted === false)
+						ele.addClass('danger');
+				});
+			}
+			if(sidebarMode == 1){
+				tableSidebar.empty();
+				if('workingStates' in currentStep){
+					var row = $('<tr></tr>').appendTo(tableSidebar);
+					for(var state in currentStep['workingStates']){
+						if(state == currentStep['workingStateActive'])
+							row.append('<td class="info">' + currentStep['workingStates'][state] + '</td>');
+						else if(state == currentStep['workingStateNew'])
+							row.append('<td class="success">' + currentStep['workingStates'][state] + '</td>');
+						else if(state == currentStep['workingStateRemove'])
+							row.append('<td class="danger">' + currentStep['workingStates'][state] + '</td>');
+						else
+							row.append('<td>' + currentStep['workingStates'][state] + '</td>');
+					}
+					openSidebar();
+				}
+			}
 			currentProgress = progress;
 			textCurrentProgress.text(currentProgress);
-			textTutorial.html(tutorialSteps[progress]['text']);
+			textTutorial.html(currentStep['text']);
 			progressSlider.slider('setValue', currentProgress);
 		}
 	}
@@ -1404,4 +1553,52 @@
 			cy.elements('.highlighted').removeClass('highlighted');
 		});
 	}
+	
+	function setupTutorial(mode, modeParam){
+		currentProgress = 0;
+		progressSlider.slider('setValue', 0);
+		progressSlider.slider('setAttribute', 'max', tutorialSteps.length-1);
+		textCurrentProgress.text(0);
+		textMaxProgress.text(tutorialSteps.length-1);
+		setupSidebar(mode, modeParam);
+		tutorialBar.slideDown();
+		jumpToStep(0);
+	}
+	
+	function setupSidebar(mode, modeParam){
+		sidebarMode = mode;
+		tableSidebar.empty();
+		if(sidebarMode == 0){
+			textSidebarTitle.text(tutorialText['inputWord']);
+			var row = $('<tr id="rowInputWord"></tr>').appendTo(tableSidebar);
+			for(i = 0; i < modeParam.length; i++){
+				row.append('<td>' + modeParam[i] + '</td>');
+			}
+			tableSidebar.append('<tr id="rowInputPos" class="row-borderless"></tr>');
+		}
+		if(sidebarMode == 1){
+			textSidebarTitle.text(tutorialText['newStates']);
+		}
+	}
+	
+	function openSidebar(){
+		if(!tutorialSidebar.hasClass('open')){
+			tutorialSidebar.removeClass('closed');
+			tutorialSidebar.addClass('open');
+		}
+	}
+	
+	var toggle = $('#tutorialSidebarHandle');
+
+	toggle.on('click', function() {
+		var isOpen = tutorialSidebar.hasClass('open');
+		if(isOpen){
+			tutorialSidebar.removeClass('open');
+			tutorialSidebar.addClass('closed');
+		}
+		else{
+			tutorialSidebar.removeClass('closed');
+			tutorialSidebar.addClass('open');
+		}
+	});
 });
