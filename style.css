@@ -191,14 +191,18 @@ body {
 	transform: rotate(180deg);
 }
 
+.table-container .sidebar-table{
+	border: none;
+}
+
 .sidebar-table td{
 	text-align: center;
 	width: 40px;
 }
 
-
 #sliderProgress {
 	margin-top:5px;
+	width: 100%;
 }
 
 #sliderProgress .slider-selection {
