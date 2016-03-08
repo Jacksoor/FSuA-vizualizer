@@ -27,6 +27,9 @@
 		<link href="http://cdnjs.cloudflare.com/ajax/libs/qtip2/2.2.0/jquery.qtip.min.css" rel="stylesheet" type="text/css" />
 		<script src="./cytoscape-qtip.js"></script>
 		
+		<!-- Clipboard Copy -->
+		<script src="./clipboard.min.js"></script>
+		
 		<!-- THE script -->
 		<script src="./fsua-vizualizer.js"></script>
 		
@@ -40,34 +43,38 @@
 		
 		<div id="config" class="config">
 			<h2>Optionen</h2>
-			<div class="form-group">
-				<label for="btn-group">Aktiver Automat:</label><br>
-				<div class="btn-group">
-				<button type="button" class="btn btn-info btn-lg dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-					<span id="textActiveAutomata">Automat 1</span> <span class="caret"></span>
+			<label for="btn-group">Aktiver Automat:</label><br>
+			<div class="btn-group">
+			<button type="button" class="btn btn-info btn-lg dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+				<span id="textActiveAutomata">Automat 1</span> <span class="caret"></span>
+			</button>
+			<ul class="dropdown-menu" id="listAvaiableAutomatas">
+				<li><a href="#" value="1">Automat 1</a></li>
+			</ul>
+			</div>
+			<button type="button" class="btn btn-success btn-lg" id="btnAddAutomata">
+				<span class="glyphicon glyphicon-plus" aria-hidden="true"></span>
+			</button>
+			<div class="btn-group">
+				<button type="button" class="btn btn-default btn-lg" id="btnExport">
+					<span class="glyphicon glyphicon-export" aria-hidden="true"></span>
 				</button>
-				<ul class="dropdown-menu" id="listAvaiableAutomatas">
-					<li><a href="#" value="1">Automat 1</a></li>
-				</ul>
-				</div>
-				<button type="button" class="btn btn-success btn-lg" id="btnAddAutomata">
-					<span class="glyphicon glyphicon-plus" aria-hidden="true"></span>
+				<button type="button" class="btn btn-default btn-lg" id="btnImport">
+					<span class="glyphicon glyphicon-import" aria-hidden="true"></span>
 				</button>
 			</div>
-			<div class="form-group">
-				<label for="inputAlphabet">Eingabealphabet:</label>
-				<input type="text" id="inputAlphabet" data-role="tagsinput" autocomplete="off">
-				<script>
-					$('#inputAlphabet').tagsinput({
-						maxChars: 1,
-						confirmKeys: [13, 32, 44]
-					});
-				</script>
-			</div>
-			<div class="form-group">
-				<label for="inputWord">Eingabewort:</label>
-				<input type="text" class="form-control" id="inputWord" placeholder="bsp. abab" autocomplete="off">
-			</div>
+			<label for="inputAlphabet">Eingabealphabet:</label>
+			<input type="text" id="inputAlphabet" data-role="tagsinput" autocomplete="off">
+			<script>
+				$('#inputAlphabet').tagsinput({
+					maxChars: 1,
+					confirmKeys: [13, 32, 44]
+				});
+			</script>
+			
+			<h2>Algorithmen</h2>
+			<label for="inputWord">Eingabewort:</label>
+			<input type="text" class="form-control" id="inputWord" placeholder="bsp. abab" autocomplete="off">
 			<button class="btn btn-info btn-lg" id="btnTestWord">Eingabe testen</button>
 			<button class="btn btn-info btn-lg" id="btnToDFA">In DFA umwandeln</button>
 			<button class="btn btn-info btn-lg" id="btnMinimizeDFA">DFA minimieren</button>
@@ -76,7 +83,6 @@
 			</button>
 				
 			<button class="btn btn-default btn-lg" id="btnTest">Test!</button>
-			<button class="btn btn-default btn-lg" id="btnSave">Graph speichern <span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span></button>
 		</div>
 		
 		<div class="tutorial-bar container-fluid" id="tutorialBar">
@@ -160,7 +166,7 @@
 				<div class="form-group">
 					<label for="inputTransitionSymbols">Übergangszeichen</label>
 					<input type="text" class="form-control" id="inputTransitionSymbols" data-role="tagsinput">
-					<span id="errorTransitionSymbols" class="text-danger error-message">Zeichen befindet sich nicht im Eingabealphabet!</span>
+					<span id="errorTransitionSymbols" class="text-danger info-message">Zeichen ist nicht im Eingabealphabet!</span>
 					<script>
 						$('#inputTransitionSymbols').tagsinput({
 							maxChars: 1,
@@ -172,6 +178,26 @@
 		</div>
 		
 		<!-- Modal -->
+		<div class="modal fade" id="modalIEAutomata" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+			<div class="modal-dialog" role="document">
+				<div class="modal-content">
+					<div class="modal-header">
+						<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+						<h4 class="modal-title" id="textIEModalTitle">Automat Exportieren/Importieren</h4>
+					</div>
+					<div class="modal-body">
+						<p id="textIEInstructions"></p>
+						<textarea class="well json-data" id="jsonExportedAutomata"></textarea>
+					</div>
+					<div class="modal-footer">
+						<span id="textIEMessage" class="info-message"></span>
+						<button type="button" class="btn btn-primary" id="btnCopyExportedAutomata" data-clipboard-target="#jsonExportedAutomata"><span class="glyphicon glyphicon-copy" aria-hidden="true"></span> Kopieren</button>
+						<button type="button" class="btn btn-primary" id="btnSaveExportedAutomata"><span class="glyphicon glyphicon-floppy-disk" aria-hidden="true"></span> Speichern</button>
+						<button type="button" class="btn btn-primary" id="btnImportAutomata"><span class="glyphicon glyphicon-import" aria-hidden="true"></span> Importieren</button>
+					</div>
+				</div>
+			</div>
+		</div>
 		<div class="modal fade" id="modalAnalyzedGraph" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
 			<div class="modal-dialog" role="document">
 				<div class="modal-content">

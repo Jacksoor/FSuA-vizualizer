@@ -52,7 +52,7 @@ body {
 	margin: 0.2em;
 	cursor: pointer;
 	color: #888;
-	z-index: 9999999;
+	z-index: 1000;
 }
 
 .config-closed .config {
@@ -68,8 +68,14 @@ body {
 	width: 100%;
 }
 
-.error-message{
+.info-message{
 	display: none;
+}
+
+.json-data{
+	width: 100%;
+	max-width: 100%;
+	min-height: 75%;
 }
 
 .tutorial-bar{
@@ -102,9 +108,8 @@ body {
 	transform: translateX(-100%);
     -webkit-transform: translateX(-100%);
 	position: absolute;
-    
     left: 0;
-    height: 150px;
+	bottom: 100%;
 	min-width: 200px;
 	max-width: 50%;
 	padding: 5px;
@@ -114,38 +119,27 @@ body {
 	box-shadow: 1px 1px 23px rgba(0, 0, 0, 0.17), 1px 1px 0 rgba(255, 255, 255, 0.85) inset;
 }
 
-.sidebar-large{
-	height: 350px;
-	top:-350px;
-}
-
-.sidebar-small{
-	height: 150px;
-	top: -150px;
-}
-
 .tutorial-sidebar h3{
 	margin-top: 5px;
+}
+
+.tutorial-sidebar.open {
+	-webkit-animation: open 0.5s forwards;
+	animation: open 0.5s forwards;
+}
+
+.tutorial-sidebar.closed{
+	-webkit-animation: close 0.5s forwards;
+	animation: close 0.5s forwards;
 }
 
 .table-container{
 	overflow: auto;
 	width: 100%;
+	padding: 5px;
 }
 
-.sidebar-large .table-container{
-	height: 300px;
-}
 
-.open {
-	-webkit-animation: open 0.5s forwards;
-	animation: open 0.5s forwards;
-}
-
-.closed{
-	-webkit-animation: close 0.5s forwards;
-	animation: close 0.5s forwards;
-}
     
 @keyframes open {
     100% { transform: translateX(0%); }
@@ -193,11 +187,13 @@ body {
 
 .table-container .sidebar-table{
 	border: none;
+	margin-bottom: 0px;
 }
 
 .sidebar-table td{
 	text-align: center;
 	width: 40px;
+	height: 40px;
 }
 
 #sliderProgress {

@@ -8,10 +8,49 @@
 		minZoom: 0.5,
 		maxZoom: 5,
 		
-		style: cytoscape.stylesheet()
-		.selector('node')
-		.css({
+		style: [
+		{
+			selector: 'node',
+			css: {
 			'label': 'data(name)',
+			}
+		},
+		{
+			selector: '$node > node',
+			css: {
+			'padding-top': '10px',
+			'padding-left': '10px',
+			'padding-bottom': '10px',
+			'padding-right': '10px',
+			'text-valign': 'top',
+			'text-halign': 'center',
+			'background-color': '#fff',
+			'border-style': 'solid',
+			'border-color': 'black',
+			'border-width': '1px',
+			'transition-property': 'color, border-color, background-color',
+			'transition-duration': '0.5s',
+			'z-index': '2',
+			}
+		},
+		{
+			selector: 'edge',
+			css: {
+			'label': 'data(symbolsText)',
+			'text-outline-width': '2px',
+			'text-outline-color': 'white',
+			'target-arrow-shape': 'triangle',
+			'target-arrow-color': 'black',
+			'line-color': 'black',
+			'transition-property': 'color, line-color, target-arrow-color, source-arrow-color',
+			'transition-duration': '0.5s',
+			'edge-text-rotation': 'autorotate',
+			'z-index' : '3'
+			}
+		},
+		{
+			selector: '.state',
+			css: {
 			'width': 'label',
 			'height': 'label',
 			'padding-left': '6px',
@@ -26,35 +65,27 @@
 			'border-width': '2px',
 			'border-style': 'solid',
 			'border-color': 'black',
-			'z-index' : '2'
-		})
-		.selector('edge')
-		.css({
-			'label': 'data(symbolsText)',
-			'text-outline-width': '2px',
-			'text-outline-color': 'white',
-			'target-arrow-shape': 'triangle',
-			'target-arrow-color': 'black',
-			'line-color': 'black',
-			'transition-property': 'color, line-color, target-arrow-color, source-arrow-color',
-			'transition-duration': '0.5s',
-			'edge-text-rotation': 'autorotate',
-			'z-index' : '1'
-		})
-		.selector('.loop')
-		.css({
+			}
+		},
+		{
+			selector: '.loop',
+			css: {
 			'target-arrow-shape': 'none',
 			'source-arrow-shape': 'triangle',
 			'source-arrow-color': 'black'
-		})
-		.selector('.endState')
-		.css({
+			}
+		},
+		{
+			selector: '.endState',
+			css: {
 			'border-width': '5px',
 			'border-style': 'double',
 			'border-color': 'black',
-		})
-		.selector('.inactive')
-		.css({
+			}
+		},
+		{
+			selector: '.inactive',
+			css: {
 			'transition-duration': '0.5s',
 			'color': '#D8D8D8',
 			'border-color': '#D8D8D8',
@@ -62,9 +93,11 @@
 			'source-arrow-color': '#D8D8D8',
 			'target-arrow-color': '#D8D8D8',
 			'z-index': '0',
-		})
-		.selector('.ghostNode')
-		.css({
+			}
+		},
+		{
+			selector: '.ghostNode',
+			css: {
 			'padding-left': '0px',
 			'padding-right': '0px',
 			'padding-top': '0px',
@@ -73,53 +106,46 @@
 			'height': '0px',
 			'border-width': '0.001px',
 			'z-index' : '0',
-		})
-		.selector('.hidden')
-		.css({
-			'display': 'none',
-		})
-		.selector('.link')
-		.css({
-			'background-color': 'red'
-		})
-		.selector('.previewEdge')
-		.css({
-			'transition-duration': '0s',
-			'line-color': 'red',
-			'target-arrow-color': 'red',
-			'source-arrow-color': 'red'
-		})
-		.selector('.highlighted')
-		.css({
+			}
+		},
+		{
+			selector: '.hidden',
+			css: {
+				'display': 'none',
+			}
+		},
+		{
+			selector: '.link',
+			css: {
+				'background-color': 'red'
+			}
+		},
+		{
+			selector: '.previewEdge',
+			css: {
+				'transition-duration': '0s',
+				'line-color': 'red',
+				'target-arrow-color': 'red',
+				'source-arrow-color': 'red'
+			}
+		},
+		{
+			selector: '.highlighted',
+			css: {
 			'background-color': '#61bffc',
 			'line-color': '#61bffc',
 			'target-arrow-color': '#61bffc',
 			'source-arrow-color': '#61bffc',
-		}),
-		//sample elements
-		/*elements: {
-			nodes: [
-			{ data: { id: 't0', name: 'z0', isStartState: true, isEndState: false, hasLoop: false } },
-			{ data: { id: 't1', name: 'z1', isStartState: false, isEndState: false, hasLoop: false } },
-			{ data: { id: 't2', name: 'z2', isStartState: false, isEndState: false, hasLoop: false } },
-			],
-			edges: [
-			{ data: { id: 'te0', source: 't0', transitionSymbols: ['a'], symbolsText: 'a', target: 't1' } },
-			{ data: { id: 'te1', source: 't1', transitionSymbols: ['b'], symbolsText: 'b', target: 't2' } },
-			]
-		},*/
+			}
+		}],
 		
-		layout: {
-			name: 'grid',
-			padding: 10
-		}
 	});
 	
 	/* V A R I A B L E S */
-	var automataCounter = 1;
 	var nextId = 0;
-	var automatas = [{id: 1, name: 'Automat 1', nextState: 0, inputAlphabet: Object.create(null)}];
-	var activeAutomata = automatas[0];
+	var automatas = {1: {id: 1, name: 'Automat 1', nextState: 0, inputAlphabet: Object.create(null)}};
+	var activeAutomata = automatas[1];
+	var nextAutomataId = 2;
 	
 	var preventEvent = false;
 	var linkSourceNode = null;
@@ -149,16 +175,21 @@
 	var textSidebarTitle = $('#textTitleSidebar');
 	var tableSidebar = $('#tableSidebar');
 	
+	//Export Import
+	var textJsonData = $('#jsonExportedAutomata');
+	var textIEMessage = $('#textIEMessage');
+	var clipboard = new Clipboard('#btnCopyExportedAutomata');
+	
 	/* F U N C T I O N S */
 	function createNewAutomata(alphabet){
-		automataCounter++;
 		var automataAlphabet = Object.create(null);
 		if(alphabet !== undefined){
 			automataAlphabet = $.extend(Object.create(null),alphabet);
 		}
-		automatas.push({id: automataCounter, name: 'Automat ' + automataCounter, nextState: 0, inputAlphabet: automataAlphabet});
-		$('#listAvaiableAutomatas').append($('<li></li>').append($('<a href="#"></a>').attr('value', automataCounter).text('Automat ' + automataCounter)));
-		switchAutomata(automataCounter);
+		automatas[nextAutomataId] = {id: nextAutomataId, name: 'Automat ' + nextAutomataId, nextState: 0, inputAlphabet: automataAlphabet};
+		$('#listAvaiableAutomatas').append($('<li></li>').append($('<a href="#"></a>').attr('value', nextAutomataId).text('Automat ' + nextAutomataId)));
+		switchAutomata(nextAutomataId);
+		nextAutomataId++;
 	}
 	
 	function switchAutomata(automataId){
@@ -167,14 +198,9 @@
 		if(automataId == activeAutomata.id)
 			return;
 		
-		var selectedAutomata;
-		$.each(automatas, function(i, automata){
-			if(automata.id == automataId){
-				$('#textActiveAutomata').text(automata.name);
-				selectedAutomata = automata;
-				return;
-			}
-		});
+		var selectedAutomata = automatas[automataId];
+		$('#textActiveAutomata').text(selectedAutomata.name);
+		
 		//Prevent tagsinput add and remove events
 		preventEvent = true;
 		$('#inputAlphabet').tagsinput('removeAll');
@@ -193,6 +219,70 @@
 			activeAutomata = selectedAutomata;
 		});
 		preventEvent = false;
+	}
+	
+	function exportAutomata(){
+		var elements = cy.elements('[automataId=' + activeAutomata.id + '][!isGhost]');
+		var elementsBB = elements.boundingBox();
+		var centerpoint = {x: elementsBB.x1 + (elementsBB.w / 2), y: elementsBB.y1 + (elementsBB.h / 2)};
+		var automata = {n: activeAutomata.name, nS: activeAutomata.nextState, iA: activeAutomata.inputAlphabet};
+		var states = [];
+		var transitions = [];
+		var idToNum = Object.create(null);
+		var nodes = elements.filter('node');
+		var edges = elements.filter('edge');
+		for(var i = 0; i < nodes.length; i++){
+			var node = nodes[i];
+			var state = {};
+			var id = node.id();
+			idToNum[id] = i;
+			state['id'] = i;
+			state['n'] = node.data('name');
+			state['iSS'] = node.data('isStartState');
+			state['iES'] = node.data('isEndState');
+			var pos = node.position();
+			//Calculate relative positions and convert to int
+			var relativePos = {x: (pos.x - centerpoint.x) | 0, y: (pos.y - centerpoint.y) | 0};
+			state['p'] = relativePos;
+			states.push(state);
+		}
+		for(var i = 0; i < edges.length; i++){
+			var edge = edges[i];
+			var transition = {};
+			transition['s'] = idToNum[edge.source().id()];
+			transition['t'] = idToNum[edge.target().id()];
+			transition['tS'] = edge.data('transitionSymbols');
+			transitions.push(transition);
+		}
+		var automataExport = {a: automata, s: states, t: transitions};
+		return JSON.stringify(automataExport);
+	}
+	
+	function importAutomata(jsonData){
+		var automataImport = JSON.parse(jsonData);
+		var automata = automataImport['a'];
+		var states = automataImport['s'];
+		var transitions = automataImport['t'];
+		var numToId = Object.create(null);
+		createNewAutomata(automata.iA);
+		for(var i = 0; i < states.length; i++){
+			var state = states[i];
+			var node = addUserState(state['p']);
+			numToId[i] = node.id();
+			node.data('name', state['n']);
+			if(state['iSS']){
+				setStartState(node, true);
+			}
+			if(state['iES']){
+				setEndState(node, true);
+			}
+		}
+		for(var i = 0; i < transitions.length; i++){
+			var transition = transitions[i];
+			var source = numToId[transition['s']];
+			var target = numToId[transition['t']];
+			var edge = addEdge(source, target, transition['tS']);
+		}
 	}
 	
 	
@@ -410,19 +500,30 @@
 	
 	/* G R A P H  F U N C T I O N S */
 	
+	function addAutomataNode(id, position){
+		return cy.add([
+			{ group: "nodes", data: { id: 'a' + id, name: automatas[id].name, automataId: activeAutomata.id, isGhost: true}, renderedPosition: position },
+		]);
+	}
+	
 	function addState(id, name){
 		return cy.add([
-			{ group: "nodes", data: { id: id, automataId: activeAutomata.id, name: name, isStartState: false, isEndState: false, hasLoop: false } },
+			{ group: "nodes", data: { id: id, automataId: activeAutomata.id, name: name, isStartState: false, isEndState: false, hasLoop: false }, classes: 'state' },
 		]);
 	}
 	
 	//Add a new state to active automata created by the user
 	function addUserState(position){
-		cy.add([
-			{ group: "nodes", data: { id: "z"+nextId , automataId: activeAutomata.id, name: "z"+activeAutomata.nextState, isStartState: false, isEndState: false, hasLoop: false }, renderedPosition: position },
+		var parentId = 'a'+activeAutomata.id;
+		if(cy.getElementById(parentId).length == 0){
+			addAutomataNode(activeAutomata.id, position);
+		}
+		var newState = cy.add([
+			{ group: "nodes", data: { id: "z"+nextId , automataId: activeAutomata.id, parent: parentId, name: "z"+activeAutomata.nextState, isStartState: false, isEndState: false, hasLoop: false }, classes: 'state', renderedPosition: position },
 		]);
 		nextId++;
 		activeAutomata.nextState++;
+		return newState;
 	}
 	
 	/* 	Creates an edge with given transiton symbol assigned to the active automata
@@ -435,8 +536,14 @@
 		var edgeTransitions = Object.create(null);
 		var edgeText = '';
 		if(symbol !== undefined){
-			edgeTransitions[symbol] = true;
-			edgeText = symbol;
+			if(symbol instanceof Object){
+				edgeTransitions = symbol;
+				edgeText = Object.keys(symbol).toString();
+			}
+			else{
+				edgeTransitions[symbol] = true;
+				edgeText = symbol;
+			}
 		}
 		if(edge.size() == 0){
 			var newEdge = cy.add([
@@ -444,7 +551,7 @@
 			]);
 			if(sourceId == targetId){
 				sourceNode.data('hasLoop', true);
-				cy.getElementById('e' + nextId).addClass('loop');
+				newEdge.addClass('loop');
 			}
 			nextId++;
 			return newEdge;
@@ -483,7 +590,8 @@
 			directed: false, // whether the tree is directed downwards (or edges can point in any direction if false)
 			topdown: false,
 			padding: 30, // padding on fit
-			spacingFactor: 3, // positive spacing factor, larger => more space between nodes (N.B. n/a if causes overlap)
+			minimumDistance: 3,
+			spacingFactor: 1.5, // positive spacing factor, larger => more space between nodes (N.B. n/a if causes overlap)
 			center: rootCenter, // Centerpoint of the roots {x, y}
 			avoidOverlap: true, // prevents node overlap, may overflow boundingBox if not enough space
 			roots: startNodes, // the roots of the trees
@@ -649,6 +757,21 @@
 		}
 	});
 	
+	clipboard.on('success', function(e) {
+		textIEMessage.removeClass();
+		textIEMessage.addClass('text-success');
+		textIEMessage.text(tutorialText['exportCopied']);
+		textIEMessage.stop(true).hide().show().delay(2000).fadeOut();
+		e.clearSelection();
+	});
+
+	clipboard.on('error', function(e) {
+		textIEMessage.removeClass();
+		textIEMessage.addClass('text-danger');
+		textIEMessage.text(tutorialText['exportCannotCopied']);
+		textIEMessage.stop(true).hide().show().delay(2000).fadeOut();
+	});
+
 	progressSlider.on('change', function(){
 		jumpToStep(progressSlider.slider('getValue'));
 	});
@@ -658,13 +781,13 @@
 	//Double click and single click distinguish
 	var clicks = 0;
 	cy.on('tap', 'node', function(event) {
+		var target = event.cyTarget;
+		if(target.id() != 'linker' && target.data('automataId') != activeAutomata.id)
+			return;
 		if(linkingMode){
 			linkMode(event);
 			return;
 		}
-		var target = event.cyTarget;
-		if(target.id() != 'linker' && target.data('automataId') != activeAutomata.id)
-			return;
 		clicks++;
 		if (clicks == 1) {
 			setTimeout(function(){
@@ -721,8 +844,8 @@
 	cy.on('tapdrag', function(event){
 		var target = event.cyTarget;
 		if(linkingMode){
-			//Target is a real node
-			if(target !== cy && target.isNode() && target.id() != 'linker'){
+			//Check if target is a valid node
+			if(target !== cy && !target.isParent() && target.isNode() && target.data('automataId') == activeAutomata.id){
 				if(mouseLeftNode){
 					if(lastTargetNode == null){
 						lastTargetNode = target
@@ -787,8 +910,43 @@
 		acceptsWord($('#inputWord').val())
 	});
 	
-	$('#btnSave').on('click', function(){
-		download(JSON.stringify(cy.json()), 'graph.json', 'text/json');
+	$('#btnExport').on('click', function(){
+		textJsonData.val(exportAutomata());
+		textJsonData.attr('readonly', true);
+		$('#btnCopyExportedAutomata').show();
+		$('#btnSaveExportedAutomata').show();
+		$('#btnImportAutomata').hide();
+		$('#textIEModalTitle').text(tutorialText['exportAutomata']);
+		$('#textIEInstructions').text(tutorialText['exportInstructions']);
+		$('#modalIEAutomata').modal('show');
+	});
+	
+	$('#btnImport').on('click', function(){
+		textJsonData.val('');
+		textJsonData.attr('readonly', false);
+		$('#btnCopyExportedAutomata').hide();
+		$('#btnSaveExportedAutomata').hide();
+		$('#btnImportAutomata').show();
+		$('#textIEModalTitle').text(tutorialText['importAutomata']);
+		$('#textIEInstructions').text(tutorialText['importInstructions']);
+		$('#modalIEAutomata').modal('show');
+	});
+	
+	$('#btnImportAutomata').on('click', function(){
+		try{
+			importAutomata(textJsonData.val());
+			$('#modalIEAutomata').modal('hide');
+		}
+		catch(err){
+			textIEMessage.removeClass();
+			textIEMessage.addClass('text-danger');
+			textIEMessage.text(tutorialText['importFailure']);
+			textIEMessage.stop(true).hide().show().delay(2000).fadeOut();
+		}
+	});
+
+	$('#btnSaveExportedAutomata').on('click', function(){
+		download(textJsonData.text(), 'Automat.data.txt', 'text/plain');
 	});
 	
 	$('#btnAnalyzeGraph').on('click', function(){
@@ -1360,11 +1518,12 @@
 							tutorialStep = Object.create(null);
 							tutorialStep['marks'] = tutorialSteps[tutorialSteps.length-1]['marks'];
 							tutorialStep['startPair'] = startPairId;
+							var transition1 = getTransitions(state1, symbol)[0];
+							var transition2 = getTransitions(state2, symbol)[0];
+							var transitionState1 = transition1.target();
+							var transitionState2 = transition2.target();
 							
-							var transitionState1 = getTransitionStates(state1, symbol);
-							var transitionState2 = getTransitionStates(state2, symbol);
-							
-							tutorialStep['highlightElements'] = state1.add(state2, transitionState1, transitionState2);
+							tutorialStep['highlightElements'] = state1.add([state2, transition1, transition2, transitionState1, transitionState2]);
 							if(transitionState1.id() != transitionState2.id()){
 								//If transition nodes are out of index table index swap them
 								if(transitionState1.id() == reachableStates[0].id() || transitionState2.id() == reachableStates[reachableStates.length-1].id()){
@@ -1417,6 +1576,8 @@
 			singleStates[reachableStates[i].id()] = reachableStates[i].data('name');
 		}
 		
+		var unmarkedFields = [];
+		
 		for(var row in markTable){
 			for(var column in markTable[row]){
 				if(!markTable[row][column]){
@@ -1425,6 +1586,9 @@
 						equivalentState[row] = singleStates[row];
 						equivalentState[column] = singleStates[column];
 						equivalentStates.push(equivalentState);
+						var unmarkedField = Object.create(null);
+						unmarkedField[row + column] = true;
+						unmarkedFields.push(unmarkedField);
 						delete singleStates[row];
 						delete singleStates[column];
 					}
@@ -1432,12 +1596,18 @@
 						for(var i = 0; i < equivalentStates.length; i++){
 							if(row in equivalentStates[i] && column in singleStates){
 								equivalentStates[i][column] = singleStates[column];
+								unmarkedFields[i][row + column] = true;
 								delete singleStates[column];
 								break;
 							}
 							if(column in equivalentStates[i] && row in singleStates){
 								equivalentStates[i][row] = singleStates[row];
+								unmarkedFields[i][row + column] = true;
 								delete singleStates[row];
+								break;
+							}
+							if(column in equivalentStates[i] && row in equivalentStates[i]){
+								unmarkedFields[i][row + column] = true;
 								break;
 							}
 						}
@@ -1458,7 +1628,7 @@
 			
 			tutorialStep = Object.create(null);
 			tutorialStep['marks'] = tutorialSteps[tutorialSteps.length-1]['marks'];
-			tutorialStep['equivalentState'] = Object.create(null);
+			tutorialStep['unmarkedFields'] = unmarkedFields[i];
 			
 			for(var state in equivalentStates[i]){
 				if(state == startStateId)
@@ -1629,6 +1799,13 @@
 		addTransition: '<br>Wir fügen also den Übergang von ({0}) zu ({1}) mit dem Übergangszeichen "{2}" ein',
 		adjustTransitionsEquivalentStates: 'Für die verschmolzenen Zustände müssen wir uns jeweils nur die Übergänge eines Zustands anschauen, da die anderen Zustände gleich sind.',
 		minimizeDFADone: 'Wir haben alle Übergänge übernommen, der Minimalautomat ist fertig!',
+		exportAutomata: 'Automat Exportieren',
+		exportInstructions: 'Den Code in der Box kopieren oder abspeichern',
+		exportCopied: 'Code kopiert!',
+		exportCannotCopy: 'Code bitte manuell kopieren!',
+		importAutomata: 'Automat Importieren',
+		importInstructions: 'Den Code von dem exportierten Automaten hier einfügen', 
+		importFailure: 'Fehler beim importieren!',
 	}
 	
 	/* T U T O R I A L  F U N C T I O N S */
@@ -1722,6 +1899,11 @@
 				}
 				if('reachedPair' in currentStep){
 					$('#'+currentStep['reachedPair']).addClass('warning');
+				}
+				if('unmarkedFields' in currentStep){
+					for(var unmarkedField in currentStep['unmarkedFields']){
+						$('#'+unmarkedField).addClass('success');
+					}
 				}
 			}
 			currentProgress = progress;
