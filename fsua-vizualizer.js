@@ -16,21 +16,21 @@
 			}
 		},
 		{
-			selector: '$node > node',
+			selector: ':parent',
 			css: {
-			'padding-top': '10px',
-			'padding-left': '10px',
-			'padding-bottom': '10px',
-			'padding-right': '10px',
+			'padding-top': '30px',
+			'padding-left': '30px',
+			'padding-bottom': '30px',
+			'padding-right': '30px',
 			'text-valign': 'top',
 			'text-halign': 'center',
 			'background-color': '#fff',
 			'border-style': 'solid',
-			'border-color': 'black',
+			'color': '#D8D8D8',
+			'border-color': '#D8D8D8',
 			'border-width': '1px',
 			'transition-property': 'color, border-color, background-color',
 			'transition-duration': '0.5s',
-			'z-index': '2',
 			}
 		},
 		{
@@ -40,12 +40,14 @@
 			'text-outline-width': '2px',
 			'text-outline-color': 'white',
 			'target-arrow-shape': 'triangle',
-			'target-arrow-color': 'black',
-			'line-color': 'black',
+			'color': '#D8D8D8',
+			'source-arrow-color': '#D8D8D8',
+			'target-arrow-color': '#D8D8D8',
+			'line-color': '#D8D8D8',
 			'transition-property': 'color, line-color, target-arrow-color, source-arrow-color',
 			'transition-duration': '0.5s',
 			'edge-text-rotation': 'autorotate',
-			'z-index' : '3'
+			'z-index': '3',
 			}
 		},
 		{
@@ -59,12 +61,13 @@
 			'padding-bottom': '6px',
 			'text-valign': 'center',
 			'background-color': 'white',
-			'transition-property': 'color, border-color, background-color',
-			'transition-duration': '0.5s',
-			'color': 'black',
 			'border-width': '2px',
 			'border-style': 'solid',
-			'border-color': 'black',
+			'color': '#D8D8D8',
+			'border-color': '#D8D8D8',
+			'line-color': '#D8D8D8',
+			'transition-property': 'color, border-color, background-color',
+			'transition-duration': '0.5s',
 			}
 		},
 		{
@@ -72,7 +75,6 @@
 			css: {
 			'target-arrow-shape': 'none',
 			'source-arrow-shape': 'triangle',
-			'source-arrow-color': 'black'
 			}
 		},
 		{
@@ -80,19 +82,23 @@
 			css: {
 			'border-width': '5px',
 			'border-style': 'double',
-			'border-color': 'black',
 			}
 		},
 		{
-			selector: '.inactive',
+			selector: 'node.active',
 			css: {
-			'transition-duration': '0.5s',
-			'color': '#D8D8D8',
-			'border-color': '#D8D8D8',
-			'line-color': '#D8D8D8',
-			'source-arrow-color': '#D8D8D8',
-			'target-arrow-color': '#D8D8D8',
-			'z-index': '0',
+			'color': 'black',
+			'border-color': 'black',
+			'z-index': '4',
+			}
+		},
+		{
+			selector: 'edge.active',
+			css:{
+			'color': 'black',
+			'line-color': 'black',
+			'target-arrow-color': 'black',
+			'source-arrow-color': 'black',
 			}
 		},
 		{
@@ -162,9 +168,10 @@
 	var editEdge = null;
 	
 	//Tutorial
+	var tutorialActive = false;
 	var currentProgress;
 	var tutorialSteps;
-	var sidebarMode; //0 = acceptsWord, 1 = toDFA, 2 = minimizeDFA,
+	var sidebarMode; //0 = Hidden, 1 = acceptsWord, 2 = toDFA, 3 = minimizeDFA,
 	
 	var tutorialBar = $('#tutorialBar');
 	var progressSlider = $('#inputProgress').slider();
@@ -181,13 +188,18 @@
 	var clipboard = new Clipboard('#btnCopyExportedAutomata');
 	
 	/* F U N C T I O N S */
-	function createNewAutomata(alphabet){
+	function createNewAutomata(alphabet, automataName){
 		var automataAlphabet = Object.create(null);
 		if(alphabet !== undefined){
 			automataAlphabet = $.extend(Object.create(null),alphabet);
 		}
-		automatas[nextAutomataId] = {id: nextAutomataId, name: 'Automat ' + nextAutomataId, nextState: 0, inputAlphabet: automataAlphabet};
-		$('#listAvaiableAutomatas').append($('<li></li>').append($('<a href="#"></a>').attr('value', nextAutomataId).text('Automat ' + nextAutomataId)));
+		if(automataName === undefined){
+			automataName = 'Automat ' + nextAutomataId;
+		}
+		var newAutomata = {id: nextAutomataId, name: automataName, nextState: 0, inputAlphabet: automataAlphabet};
+		automatas[nextAutomataId] = newAutomata;
+		addAutomataNode(nextAutomataId, {x: 0, y: 0});
+		$('#listAvaiableAutomatas').append($('<li></li>').append($('<a href="#"></a>').attr('value', nextAutomataId).text(newAutomata.name)));
 		switchAutomata(nextAutomataId);
 		nextAutomataId++;
 	}
@@ -209,13 +221,13 @@
 		}
 		cy.batch(function(){
 			var oldAutomataElements = cy.elements('[automataId = ' + activeAutomata.id +']');
-			oldAutomataElements.addClass('inactive');
+			oldAutomataElements.removeClass('active');
 			oldAutomataElements.lock();
 			oldAutomataElements.ungrabify();
 			var newAutomataElements = cy.elements('[automataId = ' + automataId +']');
 			newAutomataElements.unlock();
 			newAutomataElements.grabify();
-			newAutomataElements.removeClass('inactive');
+			newAutomataElements.addClass('active');
 			activeAutomata = selectedAutomata;
 		});
 		preventEvent = false;
@@ -225,7 +237,11 @@
 		var elements = cy.elements('[automataId=' + activeAutomata.id + '][!isGhost]');
 		var elementsBB = elements.boundingBox();
 		var centerpoint = {x: elementsBB.x1 + (elementsBB.w / 2), y: elementsBB.y1 + (elementsBB.h / 2)};
-		var automata = {n: activeAutomata.name, nS: activeAutomata.nextState, iA: activeAutomata.inputAlphabet};
+		var automataAlphabet = [];
+		for(var symbol in activeAutomata.inputAlphabet){
+			automataAlphabet.push(symbol);
+		}
+		var automata = {n: activeAutomata.name, nS: activeAutomata.nextState, iA: automataAlphabet};
 		var states = [];
 		var transitions = [];
 		var idToNum = Object.create(null);
@@ -251,7 +267,11 @@
 			var transition = {};
 			transition['s'] = idToNum[edge.source().id()];
 			transition['t'] = idToNum[edge.target().id()];
-			transition['tS'] = edge.data('transitionSymbols');
+			var transitionSymbols = [];
+			for(var symbol in edge.data('transitionSymbols')){
+				transitionSymbols.push(symbol);
+			}
+			transition['tS'] = transitionSymbols;
 			transitions.push(transition);
 		}
 		var automataExport = {a: automata, s: states, t: transitions};
@@ -264,12 +284,19 @@
 		var states = automataImport['s'];
 		var transitions = automataImport['t'];
 		var numToId = Object.create(null);
-		createNewAutomata(automata.iA);
+		var automataAlphabet = Object.create(null);
+		for(var i = 0; i < automata.iA.length; i++){
+			automataAlphabet[automata.iA[i]] = true;
+		}
+		var offsetX = cy.width() / 2;
+		var offsetY = cy.height() / 2;
+		createNewAutomata(automataAlphabet, automata.name);
 		for(var i = 0; i < states.length; i++){
 			var state = states[i];
-			var node = addUserState(state['p']);
+			state['p'].x += offsetX;
+			state['p'].y += offsetY;
+			var node = addState(false, state['n'], state['p']);
 			numToId[i] = node.id();
-			node.data('name', state['n']);
 			if(state['iSS']){
 				setStartState(node, true);
 			}
@@ -281,7 +308,14 @@
 			var transition = transitions[i];
 			var source = numToId[transition['s']];
 			var target = numToId[transition['t']];
-			var edge = addEdge(source, target, transition['tS']);
+			var transitionSymbols = Object.create(null);
+			for(var j = 0; j < transition['tS'].length; j++){
+				var transitionSymbol = transition['tS'][j];
+				if(transitionSymbol in automataAlphabet){
+					transitionSymbols[transitionSymbol] = true;
+				}
+			}
+			var edge = addEdge(source, target, transitionSymbols);
 		}
 	}
 	
@@ -502,13 +536,21 @@
 	
 	function addAutomataNode(id, position){
 		return cy.add([
-			{ group: "nodes", data: { id: 'a' + id, name: automatas[id].name, automataId: activeAutomata.id, isGhost: true}, renderedPosition: position },
+			{ group: "nodes", data: { id: 'a' + id, name: automatas[id].name, automataId: id, isGhost: true}, classes: 'active', renderedPosition: position },
 		]);
 	}
 	
-	function addState(id, name){
+	function addState(id, name, position){
+		if(id === false){
+			id = 'z'+nextId;
+			nextId++;
+			activeAutomata.nextState++;
+		}
+		if(position === undefined){
+			position = {x: 0, y: 0};
+		}
 		return cy.add([
-			{ group: "nodes", data: { id: id, automataId: activeAutomata.id, name: name, isStartState: false, isEndState: false, hasLoop: false }, classes: 'state' },
+			{ group: "nodes", data: { id: id, automataId: activeAutomata.id, parent: 'a'+activeAutomata.id, name: name, isStartState: false, isEndState: false, hasLoop: false }, classes: 'state active', position: position },
 		]);
 	}
 	
@@ -519,7 +561,7 @@
 			addAutomataNode(activeAutomata.id, position);
 		}
 		var newState = cy.add([
-			{ group: "nodes", data: { id: "z"+nextId , automataId: activeAutomata.id, parent: parentId, name: "z"+activeAutomata.nextState, isStartState: false, isEndState: false, hasLoop: false }, classes: 'state', renderedPosition: position },
+			{ group: 'nodes', data: { id: 'z'+nextId , automataId: activeAutomata.id, parent: parentId, name: "z"+activeAutomata.nextState, isStartState: false, isEndState: false, hasLoop: false }, classes: 'state active', renderedPosition: position },
 		]);
 		nextId++;
 		activeAutomata.nextState++;
@@ -536,7 +578,7 @@
 		var edgeTransitions = Object.create(null);
 		var edgeText = '';
 		if(symbol !== undefined){
-			if(symbol instanceof Object){
+			if(symbol === Object(symbol)){
 				edgeTransitions = symbol;
 				edgeText = Object.keys(symbol).toString();
 			}
@@ -547,7 +589,7 @@
 		}
 		if(edge.size() == 0){
 			var newEdge = cy.add([
-				{ group: "edges", data: { id: 'e' + nextId, automataId: activeAutomata.id, source: sourceId, transitionSymbols: edgeTransitions, symbolsText: edgeText, target: targetId } }
+				{ group: "edges", data: { id: 'e' + nextId, automataId: activeAutomata.id, source: sourceId, transitionSymbols: edgeTransitions, symbolsText: edgeText, target: targetId }, classes: 'active' }
 			]);
 			if(sourceId == targetId){
 				sourceNode.data('hasLoop', true);
@@ -590,8 +632,8 @@
 			directed: false, // whether the tree is directed downwards (or edges can point in any direction if false)
 			topdown: false,
 			padding: 30, // padding on fit
-			minimumDistance: 3,
-			spacingFactor: 1.5, // positive spacing factor, larger => more space between nodes (N.B. n/a if causes overlap)
+			minimalDistance: 100,
+			spacingFactor: 1.75, // positive spacing factor, larger => more space between nodes (N.B. n/a if causes overlap)
 			center: rootCenter, // Centerpoint of the roots {x, y}
 			avoidOverlap: true, // prevents node overlap, may overflow boundingBox if not enough space
 			roots: startNodes, // the roots of the trees
@@ -629,10 +671,9 @@
 			var anchorPosition = $.extend({}, node.position());
 			anchorPosition.x -= 75;
 			cy.add([
-				{ group: 'nodes', data: { id: 'gn'+nextId, automataId: activeAutomata.id, isGhost: true }, grabbable: false, position: anchorPosition },
-				{ group: 'edges', data: { id: 'ge'+nextId, automataId: activeAutomata.id, source: 'gn'+nextId, target: node.id(), isGhost: true, isStartEdge: true  } },
+				{ group: 'nodes', data: { id: 'gn'+nextId, automataId: activeAutomata.id, parent: 'a' + activeAutomata.id, isGhost: true }, grabbable: false, position: anchorPosition, classes: 'ghostNode'},
+				{ group: 'edges', data: { id: 'ge'+nextId, automataId: activeAutomata.id, source: 'gn'+nextId, target: node.id(), isGhost: true, isStartEdge: true  }, classes: 'active' },
 			]);
-			cy.getElementById('gn'+nextId).addClass('ghostNode');
 			//Add ghost node as Attribute
 			node.data('startGhost', 'gn'+nextId);
 			nextId++;
@@ -780,10 +821,19 @@
 	
 	//Double click and single click distinguish
 	var clicks = 0;
-	cy.on('tap', 'node', function(event) {
+	cy.on('tap', 'node', function(event) {	
 		var target = event.cyTarget;
 		if(target.id() != 'linker' && target.data('automataId') != activeAutomata.id)
 			return;
+		
+		if(tutorialActive){
+			if (confirm(tutorialText['tutorialActive'])) {
+				stopTutorial();
+				return;
+			} else {
+				return;
+			}
+		}
 		if(linkingMode){
 			linkMode(event);
 			return;
@@ -802,9 +852,20 @@
 	});
 	
 	cy.on('tap', 'edge', function(event){
-		if(event.cyTarget.data('automataId') == activeAutomata.id){
-			showEdgeSettings(event);
+		var target = event.cyTarget;
+		if(target.data('automataId') != activeAutomata.id)
+			return;
+		
+		if(tutorialActive){
+			if (confirm(tutorialText['tutorialActive'])) {
+				stopTutorial();
+				return;
+			} else {
+				return;
+			}
 		}
+		
+		showEdgeSettings(event);
 	});
 	
 	//Event to move ghost start node with actual node
@@ -816,13 +877,23 @@
 	
 	//Right click or 2 finger tap
 	cy.on('cxttap', function(event){
+		if(tutorialActive){
+			if (confirm(tutorialText['tutorialActive'])) {
+				stopTutorial();
+				return;
+			} else {
+				return;
+			}
+		}
 		var target = event.cyTarget;
 		//Event is on canvas
 		if(target === cy){
 			addUserState(event.cyRenderedPosition);
 		}
+		else if(target.isParent()){
+			addUserState(event.cyRenderedPosition);
+		}
 		else if(target.isNode()){
-			
 			if(target.data('isGhost') || linkingMode && linkSourceNode == target){
 				endLinkingMode();
 				return;
@@ -899,16 +970,26 @@
 	});
 	
 	$('#btnAddAutomata').on('click' ,function(){
+		if(tutorialActive){
+			if (confirm(tutorialText['tutorialActive'])) {
+				stopTutorial();
+			} else {
+				return;
+			}
+		}
 		createNewAutomata();
 	});
 	
 	$("#listAvaiableAutomatas").on('click', 'li a', function(){
+		if(tutorialActive){
+			if (confirm(tutorialText['tutorialActive'])) {
+				stopTutorial();
+			} else {
+				return;
+			}
+		}
 		switchAutomata(parseInt($(this).attr('value')));
    });
-	
-	$('#btnTestWord').on('click', function(){
-		acceptsWord($('#inputWord').val())
-	});
 	
 	$('#btnExport').on('click', function(){
 		textJsonData.val(exportAutomata());
@@ -935,6 +1016,7 @@
 	$('#btnImportAutomata').on('click', function(){
 		try{
 			importAutomata(textJsonData.val());
+			textJsonData.val('');
 			$('#modalIEAutomata').modal('hide');
 		}
 		catch(err){
@@ -949,21 +1031,47 @@
 		download(textJsonData.text(), 'Automat.data.txt', 'text/plain');
 	});
 	
+	$('#btnTestWord').on('click', function(){
+		try{
+			acceptsWord(activeAutomata.id, $('#inputWord').val());
+		}catch(err){
+			alert('Irgendwas ist schiefgelaufen, bitte melde mir diesen Fehler!');
+			throw(err);
+		}
+	});
+	
 	$('#btnAnalyzeGraph').on('click', function(){
 		analyzeGraph();
 		$('#modalAnalyzedGraph').modal('show');
 	});
 	
 	$('#btnToDFA').on('click', function(){
-		toDFA();
+		try{
+			toDFA(activeAutomata.id);
+			setupTutorial(2);
+		}catch(err){
+			alert('Irgendwas ist schiefgelaufen, bitte melde mir diesen Fehler!');
+			throw(err);
+		}
 	});
 	
 	$('#btnMinimizeDFA').on('click', function(){
-		minimizeDFA();
+		try{
+			var result = minimizeDFA(activeAutomata.id);
+			if(result === false){
+				setupTutorial(0);
+			}
+			else{
+				setupTutorial(3, result);
+			}
+		}catch(err){
+			alert('Irgendwas ist schiefgelaufen, bitte melde mir diesen Fehler!');
+			throw(err);
+		}
 	});
 	
 	$('#btnTest').on('click', function(){
-		tutorialBar.slideDown();
+		acceptsSameLanguage(activeAutomata.id, 2);
 	});
 	
 	$('#btnCloseTutorial').on('click', function(){
@@ -1083,14 +1191,11 @@
 	}
 	
 	function containsEndState(collection){
-		var containsEndState = false;
-		collection.each(function(i, element){
-			if(element.data('isEndState')){
-				containsEndState = true;
-				return;
-			}
-		});
-		return containsEndState;
+		for(var i = 0; i < collection.length; i++){
+			if(collection[i].data('isEndState'))
+				return true;
+		}
+		return false;
 	}
 	
 	function getCombinedId(collection){
@@ -1136,6 +1241,15 @@
 		}
 	}
 	
+	function makeStatePairId(state1, state2){
+		if(state1.id() > state2.id()){
+			return state1.id() + state2.id();
+		}
+		else{
+			return state2.id() + state1.id();
+		}
+	}
+	
 	/* A L G O R I T H M S */
 	
 	function analyzeGraph(){
@@ -1169,10 +1283,9 @@
 		});
 	}
 	
-	function acceptsWord(word){
-		cy.elements().removeClass('highlighted');
+	function acceptsWord(automataId, word){
 		//Get all start states from the active automata
-		var currentStates = cy.nodes('[automataId=' + activeAutomata.id + '][?isStartState]');
+		var currentStates = cy.nodes('[automataId=' + automataId + '][?isStartState]');
 		var currentStatesName = getCombinedName(currentStates, true);
 		tutorialSteps = [];
 		var tutorialStep = Object.create(null);
@@ -1180,7 +1293,7 @@
 		tutorialSteps.push(tutorialStep);
 		tutorialStep = Object.create(null);
 		if(currentStates.empty()){
-			tutorialStep['text'] = tutorialText['noStartStates'];
+			tutorialStep['text'] = tutorialText['noStartStates'] + tutorialText['noWordsAccepted'];
 		}
 		else{
 			tutorialStep['text'] = tutorialText['foundStartStates'].format(currentStatesName);
@@ -1228,20 +1341,20 @@
 			tutorialStep['highlightElements'] = currentStates;
 			tutorialSteps.push(tutorialStep);
 		}
-		setupTutorial(0, word);
+		setupTutorial(1, word);
 	}
 	
 	/*  Tests if the activeAutomata is an DFA and saves a reachable states collection
 		in the first parameter if given
 	*/
-	function isDFA(){
-		var startStates = cy.nodes('[?isStartState][automataId=' + activeAutomata.id + ']');
+	function isDFA(automataId){
+		var startStates = cy.nodes('[?isStartState][automataId=' + automataId + ']');
 		if(startStates.empty())
 			return true; //Warning: No Start States, The automata accepts nothing
 		if(startStates.size() > 1)
 			return false; //A DFA can only have one starting state
 		var reachableStates = startStates;
-		var newStates = cy.nodes('[?isStartState][automataId=' + activeAutomata.id + ']');
+		var newStates = cy.nodes('[?isStartState][automataId=' + automataId + ']');
 		while(newStates.nonempty()){
 			for(var i = 0; i < newStates.length; i++){
 				var transitions = getTransitions(newStates[i]);
@@ -1267,8 +1380,8 @@
 		return true;
 	}
 	
-	function toDFA(){
-		var automataStates = cy.nodes('[automataId=' + activeAutomata.id + ']');
+	function toDFA(automataId){
+		var automataStates = cy.nodes('[automataId=' + automataId + ']');
 		var automataBb = automataStates.boundingBox();
 		var startStates = automataStates.filter('[?isStartState]');
 		tutorialSteps = [];
@@ -1277,9 +1390,9 @@
 		tutorialSteps.push(tutorialStep);
 		tutorialStep = Object.create(null);
 		if(startStates.empty()){
-			tutorialStep['text'] = tutorialText['noStartStates'];
+			tutorialStep['text'] = tutorialText['noStartStates'] + tutorialText['toDfaNoStates'];
 			tutorialSteps.push(tutorialStep);
-			return; //TODO: Error no start states
+			return;
 		}
 		else{
 			tutorialStep['text'] = tutorialText['foundStartStates'].format(getCombinedName(startStates,true));
@@ -1291,7 +1404,7 @@
 		var workingStates = [startStates];
 		var allStates = Object.create(null);
 		
-		createNewAutomata(automataAlphabet);
+		createNewAutomata(automataAlphabet, activeAutomata.name + '(DFA)');
 		var prefix = 'dfa' + activeAutomata.id;
 		var startStatesId = prefix + getCombinedId(startStates);
 		var startStatesName = getCombinedName(startStates);
@@ -1387,19 +1500,44 @@
 		tutorialSteps.push(tutorialStep);
 		var automataPos = {x: automataBb.x2 + 50, y: (automataBb.h / 2 + automataBb.y1)}
 		applyAutomataLayout(automataPos);
-		setupTutorial(1);
 	}
 	
-	function minimizeDFA(){
-		var automataStates = cy.nodes('[automataId=' + activeAutomata.id + ']');
+	function acceptsSameLanguage(automataId, otherAutomataId){
+		var startState1 = cy.nodes('[automataId=' + automataId + '][?isStartState]');
+		var startState2 = cy.nodes('[automataId=' + otherAutomataId + '][?isStartState]');
+		var allStates = Object.create(null);
+		allStates[makeStatePairId(startState1, startState2)];
+		var workingStates = [[startState1,startState2]];
+		for(var i = 0; i < workingStates.length; i++){
+			workingState = workingStates[i];
+			if((containsEndState(workingState[0]) && !containsEndState(workingState[1])) || (!containsEndState(workingState[0]) && containsEndState(workingState[1]))){
+				return false;
+			}
+			for(var symbol in activeAutomata.inputAlphabet){
+				var transitionState1 = getTransitionStates(workingState[0], symbol);
+				var transitionState2 = getTransitionStates(workingState[1], symbol);
+				var pairId = makeStatePairId(transitionState1, transitionState2);
+				if(setAdd(allStates, pairId)){
+					workingStates.push([transitionState1, transitionState2]);
+				}
+			}
+		}
+		return true;
+	}
+	
+	function minimizeDFA(automataId){
+		var automataStates = cy.nodes('[automataId=' + automataId + ']');
 		var automataBb = automataStates.boundingBox();
+		tutorialSteps = [];
 		//Test if DFA
 		var startStates = automataStates.filter('[?isStartState]');
-		if(startStates.empty())
-			return; //Delete all other states
-		
-		tutorialSteps = [];
 		var tutorialStep = Object.create(null);
+		if(startStates.empty()){
+			tutorialStep['text'] = tutorialText['noStartStates'] + tutorialText['minimizeNoStates'];
+			tutorialSteps.push(tutorialStep);
+			return false; //Delete all other states
+		}
+		
 		tutorialStep['text'] = tutorialText['checkIfDFA'];
 		tutorialSteps.push(tutorialStep);
 		if(startStates.size() > 1){
@@ -1444,19 +1582,23 @@
 		}
 		
 		var endStates = reachableStates.filter('[?isEndState]');
-		if(endStates.size() == 0)
-			return;
+		
+		tutorialStep = Object.create(null);
+		if(endStates.size() == 0){
+			tutorialStep['text'] = tutorialText['noEndStates'] + tutorialText['minimizeNoStates'];
+			tutorialSteps.push(tutorialStep);
+			return false;
+		}
+		
+		tutorialStep['text'] = tutorialText['createMarkTable'];
+		tutorialStep['highlightElements'] = reachableStates;
+		tutorialSteps.push(tutorialStep);
 		
 		//Sort states by name
 		reachableStates = reachableStates.sort(function (a, b){
 			return a.data('name') > b.data('name');
 		});
-		
-		tutorialStep = Object.create(null);
-		tutorialStep['text'] = tutorialText['createMarkTable'];
-		tutorialStep['highlightElements'] = reachableStates;
-		tutorialSteps.push(tutorialStep);
-		
+
 		//Setup mark table
 		var markTable = Object.create(null);
 		for(var row = 1; row < reachableStates.length; row++){
@@ -1512,7 +1654,7 @@
 					if(!markTable[row][column]){
 						var state1 = cy.getElementById(row);
 						var state2 = cy.getElementById(column);
-						var startPairName = state1.data('name') + ',' + state2.data('name');
+						var startPairName = tutorialText['statePair'].format(state1.data('name'),state2.data('name'));
 						var startPairId = state1.id() + state2.id();
 						for(var symbol in activeAutomata.inputAlphabet){
 							tutorialStep = Object.create(null);
@@ -1526,12 +1668,12 @@
 							tutorialStep['highlightElements'] = state1.add([state2, transition1, transition2, transitionState1, transitionState2]);
 							if(transitionState1.id() != transitionState2.id()){
 								//If transition nodes are out of index table index swap them
-								if(transitionState1.id() == reachableStates[0].id() || transitionState2.id() == reachableStates[reachableStates.length-1].id()){
+								if(!(transitionState1.id() in markTable) || !(transitionState2.id() in markTable[transitionState1.id()])){
 									var temp = transitionState1;
 									transitionState1 = transitionState2;
 									transitionState2 = temp;
 								}
-								var reachedPairName = transitionState1.data('name') + ',' + transitionState2.data('name');
+								var reachedPairName = tutorialText['statePair'].format(transitionState1.data('name'),transitionState2.data('name'));
 								var reachedPairId = transitionState1.id() + transitionState2.id();
 								tutorialStep['reachedPair'] = reachedPairId;
 								tutorialStep['text'] = tutorialText['statePairTransitionsTo'].format(startPairName, symbol, reachedPairName);
@@ -1563,11 +1705,6 @@
 				}
 			}
 		}while( marked );
-		
-		tutorialStep = Object.create(null);
-		tutorialStep['text'] = tutorialText['noMoreMarksFound'];
-		tutorialStep['marks'] = tutorialSteps[tutorialSteps.length-1]['marks'];
-		tutorialSteps.push(tutorialStep);
 		
 		var singleStates = Object.create(null);
 		var equivalentStates = [];
@@ -1616,7 +1753,19 @@
 			}
 		}
 		
-		createNewAutomata(activeAutomata.inputAlphabet);
+		tutorialStep = Object.create(null);
+		tutorialStep['marks'] = tutorialSteps[tutorialSteps.length-1]['marks'];
+		
+		if(unmarkedFields.length == 0){
+			tutorialStep['text'] = tutorialText['allFieldsMarked'];
+			tutorialSteps.push(tutorialStep);
+			return markTable;
+		}
+		
+		tutorialStep['text'] = tutorialText['noMoreMarksFound'];
+		tutorialSteps.push(tutorialStep);
+		
+		createNewAutomata(activeAutomata.inputAlphabet, activeAutomata.name + tutorialText['minimized']);
 		var prefix = 'min' + activeAutomata.id;
 		
 		var equivalentStatesIds = [];
@@ -1734,7 +1883,8 @@
 		
 		var automataPos = {x: automataBb.x2 + 50, y: (automataBb.h / 2 + automataBb.y1)}
 		applyAutomataLayout(automataPos);
-		setupTutorial(2,markTable);
+		return markTable;
+		
 	}
 	
 	if (!String.prototype.format) {
@@ -1750,9 +1900,12 @@
 	}
 	
 	var tutorialText = {
+		tutorialActive: 'Der Automat kann während eines Tutorials nicht modifiziert werden.\n Soll das Tutorial beendet werden?',
 		findStartStates: 'Wir suchen als erstes alle Startzustände des Automaten.',
 		foundStartStates: 'Die Startzustände des Automaten sind: ({0}).',
-		noStartStates: 'Es sind keine Startzustände vorhanden, kein Wort kann akzeptiert werden!',
+		noStartStates: 'Es sind keine Startzustände vorhanden',
+		noEndStates: 'Es sind keine Endzustände vorhanden',
+		noWordsAccepted: ', der Automat kann keine Wörter akzeptieren!',
 		readNthSymbol: 'Wir lesen das {0}. Zeichen des Wortes und suchen alle Übergänge von ({1}) mit dem Zeichen "{2}".',
 		useTransitions: 'Wir gehen mit unseren gefundenen Übergängen in die Zustände: ({0})',
 		undefinedTransitions: 'Es sind keine Übergänge von ({0}) für das Zeichen "{1}" verfügbar, das Wort kann nicht komplett eingelesen werden und wird nicht akzeptiert!',
@@ -1760,6 +1913,7 @@
 		wordAccepted: 'Da sich darunter ein Endzustand befindet, wird das Wort von diesem Automaten akzeptiert!',
 		wordRejected: 'Da sich darunter kein Endzustand befindet, wird das Wort von diesem Automaten nicht akzeptiert!',
 		inputWord: 'Eingabewort',
+		toDfaNoStates: ', der DFA hat keine Zustände!',
 		combineStartStates: 'Wir fassen alle Startzustände zu einem neuen Startzustand zusammen.',
 		startContainsEndState: '<br>Da sich darunter mindestens ein Endzustand befindet, ist auch der neue Startzustand ein Endzustand.',
 		checkNewStates: 'Wir müssen nun für alle neuen Zustände alle Übergänge überprüfen',
@@ -1777,6 +1931,8 @@
 		addSymbolToEdge: 'Wir fügen zur bereits bestehenden Übergang von ({0}) {1} das Zeichen "{2}" hinzu.',
 		removeWorkingState: 'Wir haben für alle Zeichen der Eingabealphabetes die Übergänge definiert, der Zustand ({0}) ist abgearbeitet.',
 		toDfaDone: 'Es sind keine neuen Zustände mehr vorgekommen, der DFA ist fertig.', 
+		minimized: '(minimiert)',
+		minimizeNoStates: ', der Minimalautomat hat keine Zustände!',
 		checkIfDFA: 'Wir überprüfen als erstes ob es sich bei dem Automaten um einen DFA handelt',
 		tooManyStartStates: 'Es ist mehr als ein Startzustand vorhanden, der Automat ist kein DFA!',
 		tooManyTransitions: 'Es ist mehr als ein Übergang für ein Zeichen im Zustand ({0}) definiert, der Automat ist kein DFA!',
@@ -1786,11 +1942,13 @@
 		markTableDescription: 'In der Markierungstabelle sind alle ungleichen Paare von erreichbaren Zuständen aufgeführt',
 		markEndStates: 'Wir markieren als erstes alle Paare von Endzustand und nicht Endzustand, aber nicht Paare von Endzuständen!',
 		checkUnmarkedFields: 'Wir überprüfen nun für jedes unmarkierte Feld ob ein Übergang in ein markiertes Zustandspaar geht.',
-		statePairTransitionsTo: 'Zustandspaar ({0}) geht mit dem Zeichen "{1}" über in das Zustandspaar ({2})',
-		pairIsMarked: '<br>Zustandspaar ({0}) ist markiert, darum müssen wir auch ({1}) markieren.',
+		statePair: '{({0}),({1})}',
+		statePairTransitionsTo: 'Zustandspaar {0} geht mit dem Zeichen "{1}" über in das Zustandspaar {2}',
+		pairIsMarked: '<br>Zustandspaar {0} ist markiert, darum müssen wir auch {1} markieren.',
 		pairIsNotMarked: '<br>Zustandspaar ({0}) ist nicht markiert.',
-		statePairTransitionToState: 'Zustandspaar ({0}) geht mit dem Zeichen "{1}" über in den Zustand ({2})<br> Da dies nur ein einzelner Zustand ist, können wir nichts markieren.',
+		statePairTransitionToState: 'Zustandspaar {0} geht mit dem Zeichen "{1}" über in den Zustand {2}<br> Da dies nur ein einzelner Zustand ist, können wir nichts markieren.',
 		noMoreMarksFound: 'Wir können keine Markierungen mehr setzen, die übrigen freien Felder geben nun an welche Zustände zu einem Zustand verschmolzen werden können.',
+		allFieldsMarked: 'Da alle Felder markiert sind, ist der Automat bereits minimal.',
 		equivalentStates: 'Zustände {0} sind gleich, wir erstellen also einen neuen Zustand ({0}).',
 		containsStartState: '<br>Da sich der Startzustand im neuen Zustand befindet, ist der neue Zustand der Startzustand.',
 		copySingleStates: 'Wir übernehmen alle sonstigen Zustände die nicht verschmolzen wurden.',
@@ -1832,7 +1990,7 @@
 				if('highlightElements' in currentStep)
 					currentStep['highlightElements'].addClass('highlighted');
 			});
-			if(sidebarMode == 0){
+			if(sidebarMode == 1){
 				var row = $('#rowInputWord td');
 				var readerPos = -1;
 				var wordAccepted;
@@ -1859,7 +2017,7 @@
 						ele.addClass('danger');
 				});
 			}
-			if(sidebarMode == 1){
+			if(sidebarMode == 2){
 				tableSidebar.empty();
 				if('workingStates' in currentStep){
 					var row = $('<tr></tr>').appendTo(tableSidebar);
@@ -1876,7 +2034,7 @@
 					openSidebar();
 				}
 			}
-			if(sidebarMode == 2){
+			if(sidebarMode == 3){
 				$('.mark-field').removeClass('success info warning').text('');
 				if('marks' in currentStep){
 					if('newMarks' in currentStep){
@@ -1893,6 +2051,7 @@
 							$('#'+mark).text('X');
 						}
 					}
+					openSidebar();
 				}
 				if('startPair' in currentStep){
 					$('#'+currentStep['startPair']).addClass('info');
@@ -1914,9 +2073,11 @@
 	}
 	
 	var stopTutorial = function(){
+		tutorialBar.slideUp();
 		cy.batch(function(){
 			cy.elements('.highlighted').removeClass('highlighted');
 		});
+		tutorialActive = false;
 	}
 	
 	function setupTutorial(mode, modeParam){
@@ -1926,6 +2087,7 @@
 		textCurrentProgress.text(0);
 		textMaxProgress.text(tutorialSteps.length-1);
 		setupSidebar(mode, modeParam);
+		tutorialActive = true;
 		tutorialBar.slideDown();
 		jumpToStep(0);
 	}
@@ -1933,21 +2095,22 @@
 	function setupSidebar(mode, modeParam){
 		sidebarMode = mode;
 		tableSidebar.empty();
-		tutorialSidebar.removeClass('sidebar-small sidebar-large');
+		tutorialSidebar.show();
 		if(sidebarMode == 0){
-			tutorialSidebar.addClass('sidebar-small');
+			textSidebarTitle.text('');
+			tutorialSidebar.hide();
+		}
+		if(sidebarMode == 1){
 			textSidebarTitle.text(tutorialText['inputWord']);
 			var row = $('<tr id="rowInputWord"></tr>').appendTo(tableSidebar);
 			for(i = 0; i < modeParam.length; i++){
 				row.append('<td>' + modeParam[i] + '</td>');
 			}
 		}
-		if(sidebarMode == 1){
-			tutorialSidebar.addClass('sidebar-small');
+		if(sidebarMode == 2){
 			textSidebarTitle.text(tutorialText['newStates']);
 		}
-		if(sidebarMode == 2){
-			tutorialSidebar.addClass('sidebar-large');
+		if(sidebarMode == 3){
 			textSidebarTitle.text(tutorialText['markTable']);
 			var row;
 			var tableRow;

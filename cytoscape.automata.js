@@ -11,7 +11,7 @@
 			topdown: false, // Align nodes topdown or from left to right
 			padding: 30, // padding on fit
 			circle: false, // put depths in concentric circles if true, put depths top down if false
-			minimumDistance: 3, //Minimal distance between nodes
+			minimalDistance: 20, //Minimal distance between nodes
 			spacingFactor: 1.75, // positive spacing factor, larger => more space between nodes (N.B. n/a if causes overlap)
 			center: {x: 0, y:0}, // Centerpoint of the roots {x, y}
 			avoidOverlap: true, // prevents node overlap, may overflow boundingBox if not enough space
@@ -340,8 +340,8 @@
 				var index = info.index;
 				var depthSize = depths[depth].length;
 				
-				var distanceX = Math.max(options.minimumDistance, minDistance);
-				var distanceY = Math.max(options.minimumDistance, minDistance);
+				var distanceX = Math.max(options.minimalDistance, minDistance);
+				var distanceY = Math.max(options.minimalDistance, minDistance);
 				
 				var epos;
 				if( options.topdown ){

@@ -12,11 +12,12 @@ These are things that are or should be included in the final product:
 - [x] Transform an automata into an deterministic finite automaton(DFA)
 - [x] Create multiple different automatas
 - [x] Minimize a DFA
-- [ ] Export and import different automatas
+- [x] Export and import different automatas
 - [ ] Full animations and tutorials
 
 ##Strech goals
 These are things that would be nice to have but might be cut
+* Exercises
 * Improved automata creation tools
 * Create an automata from a regular expression
 * Use Angular.js
@@ -30,6 +31,7 @@ These are things that would be nice to have but might be cut
 * https://github.com/cytoscape/cytoscape.js-qtip Slightly modified to match project needs
 * https://github.com/bootstrap-tagsinput/bootstrap-tagsinput Slightly modified for single character input
 * https://github.com/seiyria/bootstrap-slider For nice sliders
+* https://github.com/zenorocha/clipboard.js Easy copy functions
 
 ##Anything else?
 This project is currently intended for a german audience which is why the interface is written in german.
