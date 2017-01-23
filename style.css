@@ -13,6 +13,11 @@ body {
 	height: 100%;
 }
 
+.row{
+	margin-right: 0px;
+	margin-left: 0px;
+}
+
 .node-settings{
 	max-width: 200px;
 	display: none;
@@ -48,10 +53,8 @@ body {
 	position: absolute;
 	right: 5;
 	top: 5;
-	padding: 1em;
+	padding: 0.75em;
 	margin: 0.2em;
-	cursor: pointer;
-	color: #888;
 	z-index: 1000;
 }
 
@@ -75,7 +78,7 @@ body {
 .json-data{
 	width: 100%;
 	max-width: 100%;
-	min-height: 75%;
+	min-height: 50%;
 }
 
 .tutorial-bar{
@@ -91,7 +94,15 @@ body {
 }
 
 .progress-text{
-	margin-top:5px;
+	margin-top: 5px;
+}
+
+.progress-slider{
+	margin-bottom: 5px;
+}
+
+.tutorial-text{
+	margin-bottom:10px;
 }
 
 .button-controls{
