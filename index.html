@@ -6,21 +6,21 @@
 		<link href="./style.css" rel="stylesheet" type="text/css">
 		
 		<!-- Main Scripts -->
-		<script src="./jquery.min.js"></script>
+		<script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
 		<script src="./cytoscape.min.js"></script>
 		<script src="./cytoscape.automata.js"></script>
 		
 		<!-- Bootstrap -->
-		<link href="/~jacksoor/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-		<script src="/~jacksoor/js/bootstrap.min.js"></script>
+		<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
 		
 		<!-- Bootstrap Tags -->
 		<link href="./bootstrap-tagsinput.css" rel="stylesheet" type="text/css">
 		<script src="./bootstrap-tagsinput.js"></script>
 		
 		<!-- Bootstrap Slider -->
-		<link href="./bootstrap-slider.min.css" rel="stylesheet" type="text/css">
-		<script src="./bootstrap-slider.min.js"></script>
+		<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/9.7.0/css/bootstrap-slider.min.css" rel="stylesheet" type="text/css">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/9.7.0/bootstrap-slider.min.js"></script>
 		
 		<!-- Tooltips -->
 		<script src="http://cdnjs.cloudflare.com/ajax/libs/qtip2/2.2.0/jquery.qtip.min.js"></script>
@@ -28,7 +28,7 @@
 		<script src="./cytoscape-qtip.js"></script>
 		
 		<!-- Clipboard Copy -->
-		<script src="./clipboard.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/1.5.16/clipboard.min.js"></script>
 		
 		<!-- THE script -->
 		<script src="./fsua-vizualizer.js"></script>
@@ -78,7 +78,7 @@
 			<button class="btn btn-info btn-lg" id="btnTestWord">Eingabe testen</button>
 			<button class="btn btn-info btn-lg" id="btnToDFA">In DFA umwandeln</button>
 			<button class="btn btn-info btn-lg" id="btnMinimizeDFA">DFA minimieren</button>
-			<button type="button" class="btn btn-info btn-lg disabled" id="btnAnalyzeGraph">
+			<button type="button" class="btn btn-info btn-lg" id="btnAnalyzeGraph">
 				Graph analysieren
 			</button>
 				
@@ -207,13 +207,13 @@
 					</div>
 					<div class="modal-body">
 						<p>
-							Bei deinem erstellten Graphen handelt es sich um einen <span id="automataType"></span> <span id="automataDescription"></span>
+							Dieser Automat ist ein <span id="automataType"></span> <span id="automataDescription"></span>
 						</p>
 						<p> 
-							Dieser Automat enthält <span id="numStates"></span> Zustände, davon sind <span id="numStartStates"></span> Startzustände und <span id="numEndStates"></span> Endzustände.
+							Er enthält <span id="stateCount"></span> Zustände, davon sind <span id="startStateCount"></span> Startzustände und <span id="endStateCount"></span> Endzustände.
 						</p>
 						<p>
-							Es sind <span id="numTransitions"></span> Übergangsfunktionen enthalten, davon sind <span id="numEpsilonTransitions"></span> &epsilon; Übergänge.
+							Es sind <span id="transitionCount"></span> Übergangsfunktionen definiert (Ohne &epsilon; Übergänge).
 						</p>
 					</div>
 				</div>

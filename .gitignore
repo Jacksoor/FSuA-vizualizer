@@ -1,10 +1,11 @@
-﻿cytoscape.js
-cytoscape.min.js
+﻿Automatas/
+cytoscape.js
 jquery.min.js
 jquery.qtip.min.js
 jquery.qtip.min.css
-bootstrap-tagsinput.css
+cytoscape.min.old.js
 bootstrap-slider.min.css
 bootstrap-slider.min.js
 clipboard.min.js
+tests.html
 LGPL-LICENSE.txt

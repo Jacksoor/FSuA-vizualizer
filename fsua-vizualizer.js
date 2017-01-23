@@ -154,10 +154,9 @@
 	var nextAutomataId = 2;
 	
 	var preventEvent = false;
+	
 	var linkSourceNode = null;
-	var lastTargetNode = null;
 	var linkingMode = false;
-	var mouseLeftNode = false;
 	var previewEdge = null;
 	
 	//Graph Settings
@@ -196,12 +195,14 @@
 		if(automataName === undefined){
 			automataName = 'Automat ' + nextAutomataId;
 		}
+		
 		var newAutomata = {id: nextAutomataId, name: automataName, nextState: 0, inputAlphabet: automataAlphabet};
 		automatas[nextAutomataId] = newAutomata;
 		addAutomataNode(nextAutomataId, {x: 0, y: 0});
 		$('#listAvaiableAutomatas').append($('<li></li>').append($('<a href="#"></a>').attr('value', nextAutomataId).text(newAutomata.name)));
 		switchAutomata(nextAutomataId);
 		nextAutomataId++;
+		return newAutomata;
 	}
 	
 	function switchAutomata(automataId){
@@ -290,7 +291,7 @@
 		}
 		var offsetX = cy.width() / 2;
 		var offsetY = cy.height() / 2;
-		createNewAutomata(automataAlphabet, automata.name);
+		var newAutomata = createNewAutomata(automataAlphabet, automata.name);
 		for(var i = 0; i < states.length; i++){
 			var state = states[i];
 			state['p'].x += offsetX;
@@ -317,24 +318,28 @@
 			}
 			var edge = addEdge(source, target, transitionSymbols);
 		}
+		cy.center(cy.getElementById('a'+newAutomata.id));
 	}
 	
-	
 	function startLinkingMode(event){
+		linkingMode = true;
 		cy.add([
 			{ group: "nodes", data: { id: "linker", isGhost: true}, classes: 'ghostNode', grabbable: false, renderedPosition: event.cyRenderedPosition },
 			{ group: "edges", data: { id: "newLink", isGhost: true, source: linkSourceNode.id(), target: 'linker'}, classes: 'previewEdge' },
 		]);
 	}
 	
-	function endLinkingMode(){
-		if(previewEdge != null){
+	function endLinkingMode(createEdge, target){
+		if(previewEdge !== null){
 			if(previewEdge.id() == 'previewEdge')
 				previewEdge.remove();
 			else
 				previewEdge.removeClass('previewEdge');
 		}
 		previewEdge = null;
+		if(createEdge){
+			addEdge(linkSourceNode.id(), target.id());
+		}
 		linkSourceNode.removeClass('link');
 		linkSourceNode = null;
 		cy.getElementById('linker').remove();
@@ -342,35 +347,37 @@
 	}
 	
 	function linkMode(event){
-		if(linkSourceNode == null){
-			//Ghost nodes cannot be used for links
-			if(event.cyTarget.data('isGhost'))
-				return;
-			linkSourceNode = event.cyTarget;
-			linkSourceNode.addClass('link');
-			linkingMode = true;
-			mouseLeftNode = false;
+		var target = event.cyTarget;
+		if(!linkingMode){
+			//Toggle sourceNode status
+			if(linkSourceNode === null){
+				//Ghost nodes cannot be used for links
+				if(target.data('isGhost'))
+					return;
+				linkSourceNode = target;
+				linkSourceNode.addClass('link');
+			}
+			else{
+				//Special case for mobile
+				if(target != linkSourceNode){
+					endLinkingMode(true, target);
+				}
+				else{
+					linkSourceNode.removeClass('link');
+					linkSourceNode = null;
+				}
+				
+			}
 		}
-		//Unselect selected node
-		else if(event.cyTarget == linkSourceNode && !mouseLeftNode){
-			endLinkingMode();
-		}
-		//Link the selected node to the event node
 		else{
-			//Cancel linking mode on invalid target
-			if(event.cyTarget.data('isGhost')){
-				endLinkingMode();
+			if(target.data('isGhost') || target.data('automataId') != activeAutomata.id)
 				return;
-			}
-			if(previewEdge != null && previewEdge.id() == 'previewEdge'){
-				previewEdge.remove();
-				addEdge(linkSourceNode.id(), event.cyTarget.id());
-			}
-			endLinkingMode();
+			
+			endLinkingMode(true, target)
 		}
 	}
 	
-	function showNewEdge(sourceNode, targetNode){
+	function showPreviewEdge(sourceNode, targetNode){
 		var exsistingEdge = sourceNode.edgesTo(targetNode);
 		if(exsistingEdge.size() == 0){
 			if(previewEdge != null && previewEdge.id() == 'previewEdge')
@@ -386,6 +393,17 @@
 		else{
 			previewEdge = exsistingEdge;
 			previewEdge.addClass('previewEdge');
+		}
+		cy.getElementById('linker').addClass('hidden');
+	}
+	
+	function removePreviewEdge(){
+		if(previewEdge !== null){
+			if(previewEdge.id() == 'previewEdge')
+				previewEdge.remove();
+			else
+				previewEdge.removeClass('previewEdge');
+			cy.getElementById('linker').removeClass('hidden');
 		}
 	}
 	
@@ -823,7 +841,16 @@
 	var clicks = 0;
 	cy.on('tap', 'node', function(event) {	
 		var target = event.cyTarget;
-		if(target.id() != 'linker' && target.data('automataId') != activeAutomata.id)
+		
+		if(linkingMode){
+			if(target.id() == 'linker')
+				endLinkingMode(false);
+			else
+				linkMode(event);
+			return;
+		}
+		
+		if(target.data('automataId') != activeAutomata.id)
 			return;
 		
 		if(tutorialActive){
@@ -834,17 +861,14 @@
 				return;
 			}
 		}
-		if(linkingMode){
-			linkMode(event);
-			return;
-		}
+
 		clicks++;
 		if (clicks == 1) {
 			setTimeout(function(){
 				if(clicks == 1) {
-					linkMode(event);
+						linkMode(event);
 					} else {
-					showNodeSettings(event);
+						showNodeSettings(event);
 				}
 				clicks = 0;
 			}, 150);
@@ -912,7 +936,40 @@
 		}
 	});
 	
+	cy.on('tapdragout', 'node', function(event){
+		var target = event.cyTarget;
+		if(linkingMode){
+			removePreviewEdge();
+		}
+		else{
+			if(!target.isParent() && linkSourceNode !== null){
+				startLinkingMode(event);
+			}
+		}
+	});
+	
+	cy.on('tapdragover', 'node', function(event){
+		var target = event.cyTarget;
+		if(target.id() == 'linker')
+			return
+		
+		if(linkingMode){
+			if(!target.isParent() && target.data('automataId') == activeAutomata.id){
+				showPreviewEdge(linkSourceNode, target);
+			}
+		}
+	});
+	
 	cy.on('tapdrag', function(event){
+		if(linkingMode){
+			cy.getElementById('linker').renderedPosition(event.cyRenderedPosition);
+		}
+		else if(linkSourceNode !== null && event.cyTarget !== linkSourceNode){
+			startLinkingMode(event);
+		}
+	});
+	
+	/*cy.on('tapdrag', function(event){
 		var target = event.cyTarget;
 		if(linkingMode){
 			//Check if target is a valid node
@@ -961,7 +1018,7 @@
 			}
 			
 		}
-	});
+	});*/
 	
 	/* B U T T O N S */
 	$('#configToggle').on('click', function(){
@@ -1041,8 +1098,13 @@
 	});
 	
 	$('#btnAnalyzeGraph').on('click', function(){
-		analyzeGraph();
-		$('#modalAnalyzedGraph').modal('show');
+		try{
+			analyzeGraph(activeAutomata.id);
+			$('#modalAnalyzedGraph').modal('show');
+		}catch(err){
+			alert('Irgendwas ist schiefgelaufen, bitte melde mir diesen Fehler!');
+			throw(err);
+		}
 	});
 	
 	$('#btnToDFA').on('click', function(){
@@ -1252,35 +1314,41 @@
 	
 	/* A L G O R I T H M S */
 	
-	function analyzeGraph(){
+	function analyzeGraph(automataId){
 		
-		var isDFA = true;
+		var isDfa = isDFA(automataId);
+		var stateCount = 0;
 		var startStateCount = 0;
 		var endStateCount = 0;
 		var transitionCount = 0;
 		
-		//Get all real nodes
-		var allNodes = cy.nodes('[!isGhost]');
-		var numStates = allNodes.length;
-		allNodes.each(function(i, node){
-			if(node.data('isStartState'))
-				startStateCount++;
-			if(node.data('isEndState'))
-				endStateCount++;
-			var transitions = getTransitions(node);
-			$.each(inputAlphabet, function(j, symbol){
-				var symbolTransitionCount = 0;
-				transitions.each(function(k,transition){
-					if($.inArray(symbol,transition.data('transitionSymbols')) > -1){
-						symbolTransitionCount++;
-					}
-					if(symbolTransitionCount > 1){
-						isDFA = false;
-					}
-				});
-				transitionCount += symbolTransitionCount;
-			});
-		});
+		//Get all automata elements
+		var allElements = cy.elements('[automataId=' + automataId + '][!isGhost]');
+		for(var i = 0; i < allElements.length; i++){
+			var element = allElements[i];
+			if(element.isNode()){
+				stateCount++;
+				if(element.data('isStartState'))
+					startStateCount++;
+				if(element.data('isEndState'))
+					endStateCount++;
+			}
+			else if(element.isEdge()){
+				for(var symbol in element.data('transitionSymbols')){
+					transitionCount++;
+				}
+			}
+		}
+		
+		if(isDfa)
+			$('#automataType').text('DFA');
+		else
+			$('#automataType').text('NFA');
+		
+		$('#stateCount').text(stateCount);
+		$('#startStateCount').text(startStateCount);
+		$('#endStateCount').text(endStateCount);
+		$('#transitionCount').text(transitionCount);
 	}
 	
 	function acceptsWord(automataId, word){
@@ -1765,7 +1833,7 @@
 		tutorialStep['text'] = tutorialText['noMoreMarksFound'];
 		tutorialSteps.push(tutorialStep);
 		
-		createNewAutomata(activeAutomata.inputAlphabet, activeAutomata.name + tutorialText['minimized']);
+		var newAutomata = createNewAutomata(activeAutomata.inputAlphabet, activeAutomata.name + tutorialText['minimized']);
 		var prefix = 'min' + activeAutomata.id;
 		
 		var equivalentStatesIds = [];
@@ -1883,6 +1951,7 @@
 		
 		var automataPos = {x: automataBb.x2 + 50, y: (automataBb.h / 2 + automataBb.y1)}
 		applyAutomataLayout(automataPos);
+		cy.center(cy.getElementById('a'+newAutomata.id));
 		return markTable;
 		
 	}
